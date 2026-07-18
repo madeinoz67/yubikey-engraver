@@ -589,9 +589,13 @@ function sizeCanvases(){
   const w=Math.round(KEY.W*PXMM+2*PAD), h=Math.round(KEY.H*PXMM+2*PAD);
   editor.width=w*DPR; editor.height=h*DPR;
   editor.style.width=w+'px'; editor.style.height=h+'px';
+  sizePreviews();
+}
+function sizePreviews(){
   const ps=clamp(153/KEY.H, 3.4, 12);   // small models get a larger preview scale
-  [pvF,pvB].forEach(c=>{c.width=KEY.W*ps*DPR; c.height=KEY.H*ps*DPR;
-    c.style.width=(KEY.W*ps)+'px'; c.style.height=(KEY.H*ps)+'px';});
+  const ph = state.mode==='color' ? (KEY.H-KEY.bodyTop) : KEY.H;  // sticker preview = body only
+  [pvF,pvB].forEach(c=>{c.width=KEY.W*ps*DPR; c.height=ph*ps*DPR;
+    c.style.width=(KEY.W*ps)+'px'; c.style.height=(ph*ps)+'px';});
 }
 
 function drawKeyBody(g,side){ // g is in mm space
@@ -782,12 +786,15 @@ function renderPreview(canvas,side){
   g.setTransform(1,0,0,1,0,0);
   g.clearRect(0,0,canvas.width,canvas.height);
   if(state.mode==='color'){
-    // sticker preview: body colour + full-colour art, clipped to mask
-    g.save(); g.scale(pxmm,pxmm);
+    // sticker preview: body only (cropped to printable area), colour art
+    const bt=KEY.bodyTop;
+    g.save(); g.scale(pxmm,pxmm); g.translate(0,-bt);
     g.fillStyle=$('#stBg').value;
     g.fill(maskPath(side),'evenodd');
     g.restore();
+    g.save(); g.translate(0,-bt*pxmm);
     g.drawImage(renderArt(side,pxmm,true,'color'),0,0);
+    g.restore();
     return;
   }
   g.save(); g.scale(pxmm,pxmm); drawKeyBody(g,side); g.restore();
@@ -1128,14 +1135,15 @@ $('#expBack').onclick=()=>exportSide('back');
    ===================================================================== */
 function renderSticker(side,pxmm){
   const c=document.createElement('canvas');
-  c.width=Math.round(KEY.W*pxmm); c.height=Math.round(KEY.H*pxmm);
+  c.width=Math.round(KEY.W*pxmm); c.height=Math.round((KEY.H-KEY.bodyTop)*pxmm);
   const g=c.getContext('2d');
-  g.save(); g.scale(pxmm,pxmm);
+  g.save(); g.scale(pxmm,pxmm); g.translate(0,-KEY.bodyTop);
   g.fillStyle=$('#stBg').value;
-  g.fill(maskPath(side),'evenodd');       // sticker body with holes punched out
+  g.fill(maskPath(side),'evenodd');       // sticker body with holes punched out (body at y=0)
   g.restore();
-  const art=renderArt(side,pxmm,true,'color');   // full colour: per-layer colours + image RGB
-  g.drawImage(art,0,0);
+  g.save(); g.translate(0,-KEY.bodyTop*pxmm);
+  g.drawImage(renderArt(side,pxmm,true,'color'),0,0);   // full colour, shifted up
+  g.restore();
   return c;
 }
 function svgMaskPath(side){
@@ -1167,15 +1175,18 @@ async function exportStickerPNG(){
 async function exportStickerSVG(){
   const side=state.side, pxmm=+$('#expRes').value;
   const png=renderSticker(side,pxmm).toDataURL('image/png');
+  const Hb=KEY.H-KEY.bodyTop;
   const svg=
 `<?xml version="1.0" encoding="UTF-8"?>
 <!-- YubiKey sticker · ${MODELS[currentModel].label} · ${side} · Author: Stephen Eaton -->
 <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink"
-     width="${KEY.W}mm" height="${KEY.H}mm" viewBox="0 0 ${KEY.W} ${KEY.H}">
+     width="${KEY.W}mm" height="${Hb}mm" viewBox="0 0 ${KEY.W} ${Hb}">
   <g id="print">
-    <image xlink:href="${png}" href="${png}" x="0" y="0" width="${KEY.W}" height="${KEY.H}"/>
+    <image xlink:href="${png}" href="${png}" x="0" y="0" width="${KEY.W}" height="${Hb}"/>
   </g>
-  <path id="cut" d="${svgMaskPath(side)}" fill="none" stroke="#FF0000" stroke-width="0.1"/>
+  <g id="cut" transform="translate(0,-${KEY.bodyTop})">
+    <path d="${svgMaskPath(side)}" fill="none" stroke="#FF0000" stroke-width="0.1"/>
+  </g>
 </svg>`;
   download(new Blob([svg],{type:'image/svg+xml'}),
     `yubikey_${currentModel}_${side}_sticker.svg`);
@@ -1186,6 +1197,7 @@ function setMode(m){
   state.mode=m;
   $('#viewEngrave').classList.toggle('active',m==='engrave');
   $('#viewColor').classList.toggle('active',m==='color');
+  sizePreviews();
   refresh();
 }
 $('#viewEngrave').onclick=()=>setMode('engrave');
