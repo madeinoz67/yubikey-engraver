@@ -1057,10 +1057,11 @@ async function exportSide(side){
   const mirror=side==='back'&&$('#expMirror').checked;
   const outline=$('#expOutline').checked;
   const c=document.createElement('canvas');
-  c.width=Math.round(KEY.W*pxmm); c.height=Math.round(KEY.H*pxmm);
+  c.width=Math.round(KEY.W*pxmm); c.height=Math.round((KEY.H-KEY.bodyTop)*pxmm);
   const g=c.getContext('2d');
   g.fillStyle='#FFFFFF'; g.fillRect(0,0,c.width,c.height);
   g.save();
+  g.translate(0,-KEY.bodyTop*pxmm);   // crop to body: drop the connector strip above bodyTop
   if(mirror){ g.translate(c.width,0); g.scale(-1,1); }
   const art=tint(renderArt(side,pxmm,true),'#000000');
   g.drawImage(art,0,0);
