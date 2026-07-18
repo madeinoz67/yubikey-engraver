@@ -552,22 +552,18 @@ function bakeImage(l){
   // auto-contrast: stretch the used darkness range to full intensity so
   // light artwork still shows/engraves. Off => raw darkness values.
   const stretch=(l.autoC!==false)&&(hi-lo>0.02);
-  const outC=new ImageData(width,height);
   for(let j=0;j<n;j++){
     const i=j*4;
     const d=stretch?clamp((darks[j]-lo)/(hi-lo),0,1):darks[j];
-    const a=Math.round(d*data[i+3]);
     out.data[i]=out.data[i+1]=out.data[i+2]=0;          // engrave: black alpha map
-    out.data[i+3]=a;
-    outC.data[i]=data[i]; outC.data[i+1]=data[i+1]; outC.data[i+2]=data[i+2]; // color: original RGB
-    outC.data[i+3]=a;                                     //   …same darkness-based alpha
+    out.data[i+3]=Math.round(d*data[i+3]);
   }
   const c=document.createElement('canvas'); c.width=width; c.height=height;
   c.getContext('2d').putImageData(out,0,0);
   l._baked=c;
-  const cc=document.createElement('canvas'); cc.width=width; cc.height=height;
-  cc.getContext('2d').putImageData(outC,0,0);
-  l._bakedColor=cc;
+  const nat=document.createElement('canvas'); nat.width=width; nat.height=height;
+  nat.getContext('2d').putImageData(l._src,0,0);         // color: natural image (original RGB + alpha)
+  l._natural=nat;
 }
 const getSel=()=>state.layers[state.side].find(l=>l.id===state.sel)||null;
 function delLayer(id){
@@ -691,7 +687,7 @@ function drawLayerInto(g,l,mode='engrave'){ // g in mm space; mode: 'engrave' (b
       g.scale(s,s); g.fillText(l.text,0,0);
     }
   } else if(l.type==='image'){
-    g.drawImage((mode==='color'&&l._bakedColor)?l._bakedColor:l._baked,-w/2,-h/2,w,h);
+    g.drawImage((mode==='color'&&l._natural)?l._natural:l._baked,-w/2,-h/2,w,h);
   }
   g.restore();
 }

@@ -14,9 +14,9 @@ Color support for sticker printing.
   COLOR = full-colour (per-layer colours + image RGB).
 - **Per-layer colour** for vector and text layers — colour picker in the
   properties panel; the chosen colour shows in COLOR view and the sticker export.
-- **Colour-retaining image layers** — uploaded images keep their original RGB
-  in COLOR view and sticker export (darkness-masked, so white backgrounds drop
-  out). The laser path still uses the monochrome engrave-intensity bake.
+- **Colour-retaining image layers** — uploaded images render as their natural
+  image (original colours + their own transparency) in COLOR view and sticker
+  export. The laser path still uses the monochrome engrave-intensity bake.
 - **Sticker export is full-colour** — dark body (`stBg`) + per-layer colours +
   image RGB, for Cricut print-and-cut. `stArt` is now the default art colour
   for newly-added layers (gold accent, so COLOR mode is visibly distinct from
