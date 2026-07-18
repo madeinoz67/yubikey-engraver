@@ -47,6 +47,30 @@ not supported** — the flush USB-stick body leaves no surface to engrave.
 3. **Export PNG** → import into LightBurn (or your laser software) → engrave
    (black = engrave).
 
+## Colour & sticker printing
+
+For Cricut print-and-cut or UV printing, switch to **STICKER** view and
+recolour your layers:
+
+1. Switch the header toggle to **STICKER** — the editor and front/back
+   previews switch to full colour.
+2. Click a motif or text layer on the key (or pick it in the **Layers** list)
+   to select it.
+3. In the **Selected Layer** panel (right), use the **Colour** picker to set
+   its colour. Previews update live, and the picker stays open while you browse
+   and compare colours.
+4. New motif/text layers default to **gold**. Change the **Default art colour**
+   swatch (Sticker section) to set a different default for layers you add next.
+
+Notes:
+
+- Only **motif and text** layers have a colour picker. **Uploaded images** keep
+  their natural colours — use a PNG with transparency for clean edges.
+- The **laser engrave** export is unaffected — it's always a monochrome
+  black-on-white mask (`black = engrave`).
+- Export with **Sticker PNG** (true scale) or **Sticker SVG** (printed design +
+  red cut path).
+
 ## Example output
 
 Real exports at 20 px/mm (true physical scale, `pHYs` DPI embedded) — the
