@@ -1,0 +1,1254 @@
+<!DOCTYPE html>
+<!--
+  YubiKey 5C NFC Engraving Designer
+  Author: Stephen Eaton
+  Single-file local web app. Open directly in a browser (no server needed).
+
+  - Design front / back artwork over a dimensionally-accurate YubiKey 5C NFC outline
+  - Built-in vector motif library + JPEG/PNG upload + text layers
+  - Move (drag / arrows), scale (wheel / slider), rotate (Alt+wheel / slider)
+  - Front mask clips: adjustable border, keyring hole, touch pad
+  - Back mask clips: adjustable border, keyring hole
+  - Engraved preview (light-on-black) for both sides
+  - Export clipped artwork as PNG at true physical scale (pHYs DPI embedded)
+    ready for LightBurn / laser engraving software (black = engrave)
+-->
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="YK Engraver">
+<meta name="theme-color" content="#0F1114">
+<title>YubiKey 5C NFC · Engraving Designer</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0F1114; --panel:#171A1F; --panel2:#1D2127; --line:#262B33;
+    --text:#E9EBEE; --dim:#8B929D; --gold:#E0A93E; --gold-dk:#9C7220;
+    --silver:#C8CDD4; --danger:#E05C4B; --ok:#5BBB7B;
+    --mono:'IBM Plex Mono',ui-monospace,monospace;
+    --disp:'Space Grotesk',system-ui,sans-serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+  html{-webkit-text-size-adjust:100%}
+  html,body{height:100%}
+  body{background:var(--bg);color:var(--text);font-family:var(--disp);font-size:14px;overflow:hidden;
+       padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+       overscroll-behavior:none}
+  button{font-family:inherit;cursor:pointer;touch-action:manipulation}
+  canvas{-webkit-user-select:none;user-select:none}
+  input,select{font-family:var(--mono);font-size:12px;color:var(--text);background:var(--bg);border:1px solid var(--line);border-radius:4px;padding:4px 6px}
+  input[type=range]{padding:0;accent-color:var(--gold)}
+  input:focus,select:focus,button:focus-visible{outline:2px solid var(--gold);outline-offset:1px}
+
+  #app{display:grid;grid-template-columns:250px 1fr 292px;grid-template-rows:52px 1fr;height:100vh}
+  header{grid-column:1/4;display:flex;align-items:center;gap:14px;padding:0 16px;border-bottom:1px solid var(--line);background:var(--panel)}
+  header .logo{width:26px;height:26px;border-radius:50%;border:3px solid var(--gold);position:relative;flex:none}
+  header .logo::after{content:'';position:absolute;inset:4px;border-radius:50%;border:2px solid var(--gold)}
+  header h1{font-size:15px;font-weight:700;letter-spacing:.04em}
+  header h1 span{color:var(--gold)}
+  header .sub{font-family:var(--mono);font-size:11px;color:var(--dim)}
+  header .spacer{flex:1}
+  .sidetabs{display:flex;border:1px solid var(--line);border-radius:6px;overflow:hidden}
+  .sidetabs button{background:var(--bg);color:var(--dim);border:0;padding:7px 18px;font-family:var(--mono);font-size:12px;letter-spacing:.08em}
+  .sidetabs button.active{background:var(--gold);color:#14100a;font-weight:600}
+
+  .col{overflow-y:auto;background:var(--panel);border-right:1px solid var(--line);scrollbar-width:thin}
+  .col.right{border-right:0;border-left:1px solid var(--line)}
+  .sec{padding:12px 14px;border-bottom:1px solid var(--line)}
+  .sec h2{font-family:var(--mono);font-size:10px;font-weight:600;letter-spacing:.14em;color:var(--dim);text-transform:uppercase;margin-bottom:10px}
+
+  /* vector library */
+  .lib{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
+  .lib button{aspect-ratio:1;background:var(--bg);border:1px solid var(--line);border-radius:6px;display:flex;align-items:center;justify-content:center;padding:5px}
+  .lib button:hover{border-color:var(--gold)}
+  .lib canvas{width:100%;height:100%}
+
+  .fileBtn,.txtBtn{width:100%;background:var(--bg);border:1px dashed var(--line);color:var(--dim);border-radius:6px;padding:10px;font-family:var(--mono);font-size:12px}
+  .fileBtn:hover,.txtBtn:hover{border-color:var(--gold);color:var(--text)}
+  .txtRow{display:flex;gap:6px;margin-top:8px}
+  .txtRow input{flex:1}
+
+  /* center */
+  .center{display:flex;flex-direction:column;overflow:hidden;background:
+    radial-gradient(1100px 500px at 50% -10%, #171b22 0%, var(--bg) 60%)}
+  .canvasWrap{flex:1;position:relative;display:flex;align-items:center;justify-content:center;overflow:auto}
+  #editor{touch-action:none;cursor:grab}
+  #editor.dragging{cursor:grabbing}
+  .hint{position:absolute;left:14px;bottom:12px;font-family:var(--mono);font-size:10.5px;color:var(--dim);line-height:1.7;pointer-events:none}
+  .previews{display:flex;gap:22px;justify-content:center;align-items:flex-end;padding:10px 12px 14px;border-top:1px solid var(--line);background:var(--panel)}
+  .previews figure{text-align:center}
+  .previews canvas{border-radius:6px}
+  .previews figcaption{font-family:var(--mono);font-size:10px;letter-spacing:.12em;color:var(--dim);margin-top:6px}
+
+  /* rows */
+  .row{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+  .row label{flex:0 0 86px;font-family:var(--mono);font-size:11px;color:var(--dim)}
+  .row input[type=range]{flex:1;min-width:0}
+  .row .val{flex:0 0 64px;text-align:right}
+  .row .val input{width:100%;text-align:right}
+  .row select{flex:1}
+  .btnrow{display:flex;gap:6px;margin-top:4px}
+  .btnrow button{flex:1;background:var(--bg);border:1px solid var(--line);color:var(--text);border-radius:5px;padding:6px;font-size:12px}
+  .btnrow button:hover{border-color:var(--gold)}
+  .btnrow button.danger{color:var(--danger)}
+  .btnrow button.danger:hover{border-color:var(--danger)}
+
+  /* layers */
+  .layers{display:flex;flex-direction:column;gap:4px}
+  .layerItem{display:flex;align-items:center;gap:8px;padding:6px 8px;border:1px solid var(--line);border-radius:6px;background:var(--bg);cursor:pointer;font-family:var(--mono);font-size:11.5px}
+  .layerItem.sel{border-color:var(--gold);background:#221d10}
+  .layerItem .tag{color:var(--gold);font-size:9px;letter-spacing:.1em;border:1px solid var(--gold-dk);border-radius:3px;padding:1px 4px}
+  .layerItem .nm{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .layerItem .mini{background:none;border:0;color:var(--dim);padding:2px;font-size:12px}
+  .layerItem .mini:hover{color:var(--text)}
+  .empty{font-family:var(--mono);font-size:11px;color:var(--dim);padding:6px 2px}
+
+  .exportBtn{width:100%;background:var(--gold);color:#14100a;border:0;border-radius:6px;padding:11px;font-weight:700;font-size:13px;letter-spacing:.04em}
+  .exportBtn:hover{filter:brightness(1.08)}
+  .exportBtn.ghost{background:var(--bg);color:var(--text);border:1px solid var(--line);font-weight:500;margin-top:6px}
+  .exportBtn.ghost:hover{border-color:var(--gold)}
+  .note{font-family:var(--mono);font-size:10.5px;color:var(--dim);line-height:1.6;margin-top:8px}
+  .chk{display:flex;align-items:center;gap:8px;font-family:var(--mono);font-size:11.5px;color:var(--dim);margin-bottom:8px}
+  details.adv summary{font-family:var(--mono);font-size:10.5px;color:var(--dim);cursor:pointer;margin:6px 0 8px}
+  @media (max-width:980px){
+    #app{display:flex;flex-direction:column;height:auto}
+    body{overflow:auto}
+    header{flex-wrap:wrap;height:auto;min-height:52px;padding:8px 14px;gap:10px}
+    .col{width:100%;border-right:0;border-left:0;border-bottom:1px solid var(--line);overflow:visible}
+    .lib{grid-template-columns:repeat(auto-fill,minmax(56px,1fr))}
+    .canvasWrap{min-height:560px}
+    .col.right{order:3}
+  }
+</style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <div class="logo" aria-hidden="true"></div>
+    <div>
+      <h1>YUBIKEY <span id="modelName">5C NFC</span> ENGRAVER</h1>
+      <div class="sub" id="dims">18.0 × 45.0 mm · design → clip → export @ true scale</div>
+    </div>
+    <div class="spacer"></div>
+    <select id="model" title="YubiKey model" style="max-width:190px"></select>
+    <div class="sidetabs" role="tablist">
+      <button id="tabFront" class="active" role="tab">FRONT</button>
+      <button id="tabBack" role="tab">BACK</button>
+    </div>
+  </header>
+
+  <!-- LEFT : library -->
+  <aside class="col left">
+    <div class="sec">
+      <h2>Vector Library</h2>
+      <div class="lib" id="lib"></div>
+    </div>
+    <div class="sec">
+      <h2>Custom Artwork</h2>
+      <input type="file" id="file" accept="image/png,image/jpeg" hidden>
+      <button class="fileBtn" id="fileBtn">+ Upload PNG / JPEG</button>
+      <p class="note">Dark pixels engrave. Use “Invert” on the layer if your art is light-on-dark.</p>
+    </div>
+    <div class="sec">
+      <h2>Text</h2>
+      <div class="txtRow">
+        <input id="txtInput" placeholder="e.g. S.EATON" maxlength="24">
+        <button class="txtBtn" style="width:auto;padding:6px 12px" id="txtAdd">Add</button>
+      </div>
+      <div class="row" style="margin-top:8px">
+        <label for="txtFont">Font</label>
+        <select id="txtFont">
+          <option value="'IBM Plex Mono',monospace" selected>Plex Mono</option>
+          <option value="'Space Grotesk',sans-serif">Space Grotesk</option>
+          <option value="Georgia,serif">Serif</option>
+          <option value="Impact,sans-serif">Impact</option>
+        </select>
+      </div>
+    </div>
+    <div class="sec">
+      <h2>Layers — <span id="layersSide">FRONT</span></h2>
+      <div class="layers" id="layers"></div>
+      <div class="btnrow" style="margin-top:8px">
+        <button id="copyAll">Copy design → BACK</button>
+      </div>
+    </div>
+  </aside>
+
+  <!-- CENTER -->
+  <main class="center">
+    <div class="canvasWrap">
+      <canvas id="editor"></canvas>
+      <div class="hint">
+        drag&nbsp;move&nbsp;·&nbsp;wheel&nbsp;scale&nbsp;·&nbsp;alt+wheel&nbsp;rotate&nbsp;·&nbsp;arrows&nbsp;nudge&nbsp;0.1mm&nbsp;(⇧=1mm)&nbsp;·&nbsp;del&nbsp;remove<br>
+        dashed&nbsp;=&nbsp;clip&nbsp;boundary&nbsp;·&nbsp;orange&nbsp;art&nbsp;=&nbsp;clipped&nbsp;(won&#39;t&nbsp;engrave)
+      </div>
+    </div>
+    <div class="previews">
+      <figure><canvas id="pvFront"></canvas><figcaption>FRONT · ENGRAVED PREVIEW</figcaption></figure>
+      <figure><canvas id="pvBack"></canvas><figcaption>BACK · ENGRAVED PREVIEW</figcaption></figure>
+    </div>
+  </main>
+
+  <!-- RIGHT -->
+  <aside class="col right">
+    <div class="sec" id="propsSec">
+      <h2>Selected Layer</h2>
+      <div id="props"><div class="empty">Nothing selected — click a layer on the key or in the layer list.</div></div>
+    </div>
+
+    <div class="sec">
+      <h2>Clip Mask</h2>
+      <div class="row"><label>Border</label><input type="range" id="mBorder" min="0" max="4" step="0.1"><span class="val"><input id="mBorderV"> </span></div>
+      <div class="row"><label>Hole clear</label><input type="range" id="mHole" min="0" max="3" step="0.1"><span class="val"><input id="mHoleV"></span></div>
+      <div class="row"><label>Pad clear</label><input type="range" id="mPad" min="0" max="3" step="0.1"><span class="val"><input id="mPadV"></span></div>
+      <p class="note">Clearances are added around the keyring hole and touch pad. All values in mm. Pad clearance applies to the front only.</p>
+      <details class="adv">
+        <summary>▸ calibrate key geometry (mm)</summary>
+        <div class="row"><label>Hole Ø</label><span class="val" style="flex:1"><input id="gHoleD"></span></div>
+        <div class="row"><label>Hole Y</label><span class="val" style="flex:1"><input id="gHoleY"></span></div>
+        <div class="row"><label>Pad Ø</label><span class="val" style="flex:1"><input id="gPadD"></span></div>
+        <div class="row"><label>Pad Y</label><span class="val" style="flex:1"><input id="gPadY"></span></div>
+        <p class="note">Y is measured from the tip of the USB-C end. Measure your key with calipers for a perfect fit, then re-check the dashed clip lines.</p>
+      </details>
+    </div>
+
+    <div class="sec">
+      <h2>Export</h2>
+      <div class="row"><label>Resolution</label>
+        <select id="expRes">
+          <option value="10">10 px/mm · 254 DPI</option>
+          <option value="20" selected>20 px/mm · 508 DPI</option>
+          <option value="40">40 px/mm · 1016 DPI</option>
+        </select>
+      </div>
+      <label class="chk"><input type="checkbox" id="expMirror"> Mirror back-side export</label>
+      <label class="chk"><input type="checkbox" id="expOutline" checked> Include body outline (alignment)</label>
+      <button class="exportBtn" id="expFront">Export FRONT · PNG</button>
+      <button class="exportBtn ghost" id="expBack">Export BACK · PNG</button>
+      <p class="note">PNG is written at true physical scale (DPI embedded) — canvas is exactly the key's real size. Black = engrave, white = skip. Import into LightBurn / LaserGRBL and it lands at real size.</p>
+    </div>
+
+    <div class="sec">
+      <h2>Sticker (Cricut)</h2>
+      <div class="row"><label>Sticker</label>
+        <input type="color" id="stBg" value="#111318" title="Sticker colour" style="flex:1;height:28px;padding:2px">
+        <input type="color" id="stArt" value="#E6E9ED" title="Artwork colour" style="flex:1;height:28px;padding:2px">
+      </div>
+      <button class="exportBtn ghost" id="stSvg" style="margin-top:0">Sticker SVG · print &amp; cut</button>
+      <button class="exportBtn ghost" id="stPng">Sticker PNG · true scale</button>
+      <p class="note">Exports the active side (<span id="stSide">FRONT</span>) as a die-cut sticker: your clip-mask shape becomes the cut line, including the keyring hole and touch pad cut-outs. SVG has the printed design plus a red cut path — in Cricut Design Space, flatten the image layer and set the red path to Cut. PNG is the same artwork at true scale for print-then-cut.</p>
+    </div>
+
+    <div class="sec">
+      <h2>Project</h2>
+      <div class="btnrow">
+        <button id="projSave">Save .json</button>
+        <button id="projLoad">Load .json</button>
+      </div>
+      <input type="file" id="projFile" accept="application/json" hidden>
+      <p class="note">Author: Stephen Eaton</p>
+    </div>
+  </aside>
+</div>
+
+<script>
+/* =====================================================================
+   YubiKey 5C NFC Engraving Designer
+   Author: Stephen Eaton
+   ===================================================================== */
+'use strict';
+
+/* ---------- model catalogue (mm). Origin = top-left of W×H bounding box,
+   connector at the top, keyring hole (if any) at the bottom.
+   Dimensions are close approximations of Yubico spec sheets — fine-tune
+   per key with the calibrate panel. ---------- */
+const GOLD={b0:'#1b1e23',b1:'#24282e',b2:'#171a1f',pad:'gold'};
+const MODELS={
+  '5c-nfc':  {label:'YubiKey 5C NFC (default)', W:18, H:45, bodyTop:6.2, bodyR:3.0,
+              conn:{type:'usbc',w:9.0,h:6.6,r:1.6}, hole:{d:4.0,y:40.8},
+              pad:{d:11.4,y:25.6}, style:GOLD, nfc:true},
+  '5-nfc':   {label:'YubiKey 5 NFC (USB-A)', W:18, H:45, bodyTop:8.4, bodyR:3.0,
+              conn:{type:'usba',w:12.0,h:7.8,r:0.9}, hole:{d:4.0,y:40.8},
+              pad:{d:11.4,y:26.6}, style:GOLD, nfc:true},
+  'sk-c-nfc':{label:'Security Key C NFC (blue)', W:18, H:45, bodyTop:6.2, bodyR:3.0,
+              conn:{type:'usbc',w:9.0,h:6.6,r:1.6}, hole:{d:4.0,y:40.8},
+              pad:{d:11.4,y:25.6},
+              style:{b0:'#1c2c4e',b1:'#27406f',b2:'#152340',pad:'gold'}, nfc:true},
+  'bio-c':   {label:'YubiKey Bio C (fingerprint)', W:18, H:45, bodyTop:6.2, bodyR:3.0,
+              conn:{type:'usbc',w:9.0,h:6.6,r:1.6}, hole:{d:4.0,y:40.8},
+              pad:{d:11.4,y:25.6},
+              style:{b0:'#1b1e23',b1:'#24282e',b2:'#171a1f',pad:'bio'}, nfc:false},
+  '5c':      {label:'YubiKey 5C (compact)', W:12.5, H:29.5, bodyTop:6.4, bodyR:2.2,
+              conn:{type:'usbc',w:8.9,h:6.2,r:1.5}, hole:{d:3.0,y:26.0},
+              pad:{d:7.0,y:18.4}, style:GOLD, nfc:false},
+};
+let currentModel='5c-nfc';
+const KEY={};                    // live (calibratable) copy of the active model
+function applyModel(id){
+  if(!MODELS[id]) id='5c-nfc';
+  currentModel=id;
+  const m=MODELS[id];
+  KEY.W=m.W; KEY.H=m.H; KEY.bodyTop=m.bodyTop; KEY.bodyR=m.bodyR;
+  KEY.conn=Object.assign({},m.conn);
+  KEY.hole=m.hole?Object.assign({},m.hole):null;
+  KEY.pad=m.pad?Object.assign({},m.pad):null;
+  KEY.style=m.style; KEY.nfc=m.nfc;
+}
+applyModel('5c-nfc');
+const MASK = { border: 1.0, holeClear: 0.8, padClear: 0.8 };
+
+/* ---------- state ---------- */
+const state = {
+  side: 'front',
+  layers: { front: [], back: [] },
+  sel: null,           // selected layer id
+};
+let uid = 1;
+
+/* ---------- helpers ---------- */
+const $ = s => document.querySelector(s);
+const clamp = (v,a,b)=>Math.max(a,Math.min(b,v));
+function roundedRect(p,x,y,w,h,r){
+  r=Math.max(0,Math.min(r,w/2,h/2));
+  p.moveTo(x+r,y); p.arcTo(x+w,y,x+w,y+h,r); p.arcTo(x+w,y+h,x,y+h,r);
+  p.arcTo(x,y+h,x,y,r); p.arcTo(x,y,x+w,y,r); p.closePath();
+}
+
+/* ---------- clip mask (mm space, even-odd: body-inset minus holes) ---------- */
+function maskPath(side){
+  const p = new Path2D();
+  const b = MASK.border;
+  const x=b, y=KEY.bodyTop+b, w=KEY.W-2*b, h=KEY.H-KEY.bodyTop-2*b;
+  roundedRect(p,x,y,w,h,KEY.bodyR-b);
+  if(KEY.hole){
+    p.moveTo(KEY.W/2 + KEY.hole.d/2 + MASK.holeClear, KEY.hole.y);
+    p.arc(KEY.W/2, KEY.hole.y, KEY.hole.d/2 + MASK.holeClear, 0, Math.PI*2);
+  }
+  if(side==='front' && KEY.pad){
+    p.moveTo(KEY.W/2 + KEY.pad.d/2 + MASK.padClear, KEY.pad.y);
+    p.arc(KEY.W/2, KEY.pad.y, KEY.pad.d/2 + MASK.padClear, 0, Math.PI*2);
+  }
+  return p;
+}
+
+/* =====================================================================
+   VECTOR LIBRARY — procedural Path2D generators in a -1..1 unit box
+   ===================================================================== */
+function star(n,inner){ const p=new Path2D();
+  for(let i=0;i<n*2;i++){ const r=i%2?inner:1, a=-Math.PI/2+i*Math.PI/n;
+    const X=Math.cos(a)*r, Y=Math.sin(a)*r; i?p.lineTo(X,Y):p.moveTo(X,Y);} p.closePath(); return p;}
+function bolt(){ const p=new Path2D();
+  [[0.25,-1],[-0.35,0.15],[0.02,0.15],[-0.25,1],[0.4,-0.2],[0.03,-0.2]]
+  .forEach((pt,i)=>i?p.lineTo(pt[0],pt[1]):p.moveTo(pt[0],pt[1])); p.closePath(); return p;}
+function heart(){ const p=new Path2D(); p.moveTo(0,0.95);
+  p.bezierCurveTo(-1.3,0.05,-0.85,-1.05,0,-0.45);
+  p.bezierCurveTo(0.85,-1.05,1.3,0.05,0,0.95); p.closePath(); return p;}
+function shield(){ const p=new Path2D(); p.moveTo(0,-1);
+  p.bezierCurveTo(0.55,-0.8,0.9,-0.85,0.95,-0.7);
+  p.bezierCurveTo(0.95,0.2,0.6,0.75,0,1);
+  p.bezierCurveTo(-0.6,0.75,-0.95,0.2,-0.95,-0.7);
+  p.bezierCurveTo(-0.9,-0.85,-0.55,-0.8,0,-1); p.closePath(); return p;}
+function hexagon(){ const p=new Path2D();
+  for(let i=0;i<6;i++){const a=Math.PI/6+i*Math.PI/3;
+    i?p.lineTo(Math.cos(a),Math.sin(a)):p.moveTo(Math.cos(a),Math.sin(a));} p.closePath(); return p;}
+function gear(){ const p=new Path2D(); const T=8,ro=1,ri=0.78,hub=0.32;
+  for(let i=0;i<T;i++){const a0=i*2*Math.PI/T, w=Math.PI/T*0.45;
+    p.arc(0,0,ri,a0+w,a0+2*Math.PI/T-w);
+    p.arc(0,0,ro,a0+2*Math.PI/T-w*0.8,a0+2*Math.PI/T+w*0.8);}
+  p.closePath(); p.moveTo(hub,0); p.arc(0,0,hub,0,Math.PI*2); return p;}
+function reticle(){ const p=new Path2D(); const t=0.13;
+  p.moveTo(1,0); p.arc(0,0,1,0,Math.PI*2); p.moveTo(0.7,0); p.arc(0,0,0.7,0,Math.PI*2,true);
+  [[-.06,-1.05,.12,.62],[-.06,.43,.12,.62],[-1.05,-.06,.62,.12],[.43,-.06,.62,.12]]
+  .forEach(r=>p.rect(r[0],r[1],r[2],r[3]));
+  p.moveTo(t,0); p.arc(0,0,t,0,Math.PI*2); return p;}
+function atom(){ const p=new Path2D();
+  for(let k=0;k<3;k++){const a=k*Math.PI/3;
+    for(let i=0;i<=48;i++){const t=i/48*2*Math.PI;
+      const ex=Math.cos(t)*1, ey=Math.sin(t)*0.38;
+      const X=ex*Math.cos(a)-ey*Math.sin(a), Y=ex*Math.sin(a)+ey*Math.cos(a);
+      i?p.lineTo(X,Y):p.moveTo(X,Y);} p.closePath();
+    // inner cut for ring
+    for(let i=48;i>=0;i--){const t=i/48*2*Math.PI;
+      const ex=Math.cos(t)*0.9, ey=Math.sin(t)*0.28;
+      const X=ex*Math.cos(a)-ey*Math.sin(a), Y=ex*Math.sin(a)+ey*Math.cos(a);
+      i===48?p.moveTo(X,Y):p.lineTo(X,Y);} p.closePath();}
+  p.moveTo(0.18,0); p.arc(0,0,0.18,0,Math.PI*2); return p;}
+function snowflake(){ const p=new Path2D(); const t=0.07;
+  for(let k=0;k<6;k++){const a=k*Math.PI/3, c=Math.cos(a), s=Math.sin(a);
+    const seg=(x0,y0,x1,y1)=>{ // thick line as quad
+      const dx=x1-x0, dy=y1-y0, L=Math.hypot(dx,dy), nx=-dy/L*t, ny=dx/L*t;
+      const R=(x,y)=>[x*c-y*s,x*s+y*c];
+      const [A,B,C,D]=[R(x0+nx,y0+ny),R(x1+nx,y1+ny),R(x1-nx,y1-ny),R(x0-nx,y0-ny)];
+      p.moveTo(A[0],A[1]); p.lineTo(B[0],B[1]); p.lineTo(C[0],C[1]); p.lineTo(D[0],D[1]); p.closePath();};
+    seg(0,0,0,-1); seg(0,-0.55,0.3,-0.8); seg(0,-0.55,-0.3,-0.8); seg(0,-0.25,0.22,-0.42); seg(0,-0.25,-0.22,-0.42);}
+  return p;}
+function padlock(){ const p=new Path2D();
+  roundedRect(p,-0.75,-0.15,1.5,1.15,0.18);
+  p.moveTo(0.5,-0.15); p.lineTo(0.5,-0.45); p.arc(0,-0.45,0.5,0,Math.PI,true); p.lineTo(-0.5,-0.15);
+  p.lineTo(-0.28,-0.15); p.lineTo(-0.28,-0.45); p.arc(0,-0.45,0.28,Math.PI,0,false); p.lineTo(0.28,-0.15); p.closePath();
+  p.moveTo(0.11,0.28); p.arc(0,0.28,0.11,0,Math.PI*2,true); p.rect(-0.055,0.3,0.11,0.32);
+  return p;}
+function keyIcon(){ const p=new Path2D();
+  p.moveTo(0.45,-0.45); p.arc(0.45,-0.45,0.5,0,Math.PI*2);
+  p.moveTo(0.45,-0.45); p.arc(0.45,-0.45,0.24,0,Math.PI*2,true);
+  p.rect(-0.95,-0.12,1.05,0.24); p.rect(-0.95,0.12,0.14,0.3); p.rect(-0.62,0.12,0.14,0.22);
+  return p;}
+function radiation(){ const p=new Path2D();
+  for(let k=0;k<3;k++){const a0=-Math.PI/2+k*2*Math.PI/3-Math.PI/6, a1=a0+Math.PI/3;
+    p.moveTo(Math.cos(a0)*0.34,Math.sin(a0)*0.34);
+    p.arc(0,0,1,a0,a1); p.lineTo(Math.cos(a1)*0.34,Math.sin(a1)*0.34);
+    p.arc(0,0,0.34,a1,a0,true); p.closePath();}
+  p.moveTo(0.16,0); p.arc(0,0,0.16,0,Math.PI*2); return p;}
+function yinyang(){ const p=new Path2D();
+  p.moveTo(0,-1); p.arc(0,0,1,-Math.PI/2,Math.PI/2,false);
+  p.arc(0,0.5,0.5,Math.PI/2,-Math.PI/2,false);
+  p.arc(0,-0.5,0.5,Math.PI/2,-Math.PI/2,true); p.closePath();
+  p.moveTo(0.14,-0.5); p.arc(0,-0.5,0.14,0,Math.PI*2); return p;}
+function crescent(){ const p=new Path2D();
+  p.moveTo(0.2,-0.98); p.arc(0,0,1,-Math.PI/2+0.2,Math.PI/2-0.2+Math.PI);
+  p.arc(0.42,0,0.78,Math.PI/2+0.35,-Math.PI/2-0.35,true); p.closePath(); return p;}
+function paw(){ const p=new Path2D();
+  p.moveTo(0.3,0.35); p.arc(0,0.35,0.52,0,Math.PI*2);
+  [[-0.62,-0.25,0.24],[-0.22,-0.55,0.24],[0.22,-0.55,0.24],[0.62,-0.25,0.24]]
+  .forEach(c=>{p.moveTo(c[0]+c[2],c[1]); p.arc(c[0],c[1],c[2],0,Math.PI*2);}); return p;}
+function skull(){ const p=new Path2D();
+  p.moveTo(0.8,-0.2); p.arc(0,-0.2,0.8,0,Math.PI*2);
+  roundedRect(p,-0.5,0.25,1,0.62,0.18);
+  p.moveTo(-0.32,-0.18); p.arc(-0.32,-0.18,0.22,0,Math.PI*2,true);
+  p.moveTo(0.32,-0.18); p.arc(0.32,-0.18,0.22,0,Math.PI*2,true);
+  p.moveTo(0,0.12); p.lineTo(0.13,0.34); p.lineTo(-0.13,0.34); p.closePath();
+  [[-0.27],[-0.09],[0.09],[0.27]].forEach(x=>{p.rect(x[0]-0.045,0.55,0.09,0.3)});
+  return p;}
+function wifi(){ const p=new Path2D();
+  for(let i=0;i<3;i++){const r0=0.35+i*0.3, r1=r0+0.16;
+    p.moveTo(Math.cos(-Math.PI*0.78)*r1,0.55+Math.sin(-Math.PI*0.78)*r1);
+    p.arc(0,0.55,r1,-Math.PI*0.78,-Math.PI*0.22);
+    p.lineTo(Math.cos(-Math.PI*0.22)*r0,0.55+Math.sin(-Math.PI*0.22)*r0);
+    p.arc(0,0.55,r0,-Math.PI*0.22,-Math.PI*0.78,true); p.closePath();}
+  p.moveTo(0.14,0.55); p.arc(0,0.55,0.14,0,Math.PI*2); return p;}
+function circuit(){ const p=new Path2D(); const t=0.055;
+  const trace=(pts)=>{for(let i=0;i<pts.length-1;i++){
+    const [x0,y0]=pts[i],[x1,y1]=pts[i+1];
+    p.rect(Math.min(x0,x1)-t,Math.min(y0,y1)-t,Math.abs(x1-x0)+2*t,Math.abs(y1-y0)+2*t);}
+    const e=pts[pts.length-1]; p.moveTo(e[0]+0.14,e[1]); p.arc(e[0],e[1],0.14,0,Math.PI*2);
+    const s=pts[0]; p.moveTo(s[0]+0.14,s[1]); p.arc(s[0],s[1],0.14,0,Math.PI*2);};
+  trace([[-0.85,-0.85],[-0.3,-0.85],[-0.3,-0.3],[0.4,-0.3],[0.4,-0.75]]);
+  trace([[-0.85,0],[0,0],[0,0.5],[0.7,0.5]]);
+  trace([[-0.5,0.85],[0.85,0.85],[0.85,0.15]]);
+  return p;}
+
+const LIB = [
+  {name:'Star',      make:()=>star(5,0.45)},
+  {name:'Star 6',    make:()=>star(6,0.55)},
+  {name:'Bolt',      make:bolt},
+  {name:'Heart',     make:heart},
+  {name:'Shield',    make:shield},
+  {name:'Hexagon',   make:hexagon},
+  {name:'Gear',      make:gear},
+  {name:'Reticle',   make:reticle},
+  {name:'Atom',      make:atom},
+  {name:'Snowflake', make:snowflake},
+  {name:'Padlock',   make:padlock},
+  {name:'Key',       make:keyIcon},
+  {name:'Radiation', make:radiation},
+  {name:'Yin-Yang',  make:yinyang},
+  {name:'Crescent',  make:crescent},
+  {name:'Paw',       make:paw},
+  {name:'Skull',     make:skull},
+  {name:'Wi-Fi',     make:wifi},
+  {name:'Circuit',   make:circuit},
+];
+
+/* ---------- build library UI ---------- */
+const libEl = $('#lib');
+LIB.forEach((item,idx)=>{
+  try{
+    const b=document.createElement('button'); b.title=item.name; b.setAttribute('aria-label',item.name);
+    const c=document.createElement('canvas'); c.width=c.height=64; b.appendChild(c);
+    const g=c.getContext('2d'); g.translate(32,32); g.scale(24,24);
+    g.fillStyle='#C8CDD4'; g.fill(item.make(),'evenodd');
+    b.onclick=()=>addVector(idx);
+    libEl.appendChild(b);
+  }catch(err){ console.error('Library shape failed:',item.name,err); }
+});
+
+/* =====================================================================
+   LAYERS
+   ===================================================================== */
+function addLayer(l){
+  l.id = uid++;
+  state.layers[state.side].push(l);
+  state.sel = l.id;
+  refresh();
+}
+const defaultY=()=>KEY.bodyTop+(KEY.H-KEY.bodyTop)*(state.side==='front'?0.25:0.4);
+function addVector(idx){
+  addLayer({type:'vector', vec:idx, name:LIB[idx].name,
+    x:KEY.W/2, y:defaultY(), w:Math.min(8,KEY.W*0.55), rot:0, aspect:1});
+}
+function addText(txt,font){
+  // measure aspect via offscreen canvas
+  const m=document.createElement('canvas').getContext('2d');
+  m.font='100px '+font;
+  const met=m.measureText(txt);
+  const asc=met.actualBoundingBoxAscent||75, desc=met.actualBoundingBoxDescent||25;
+  addLayer({type:'text', text:txt, font, name:'“'+txt+'”',
+    x:KEY.W/2, y:defaultY(), w:Math.min(KEY.W*0.8,txt.length*3), rot:0,
+    aspect:(asc+desc)/Math.max(1,met.width)});
+}
+function addImage(img,name){
+  // downscale huge photos: 1600px is far beyond engraving resolution needs,
+  // and keeps us well under iOS Safari's canvas pixel limits
+  const MAXD=1600;
+  const s=Math.min(1, MAXD/Math.max(img.naturalWidth,img.naturalHeight));
+  const c=document.createElement('canvas');
+  c.width=Math.max(1,Math.round(img.naturalWidth*s));
+  c.height=Math.max(1,Math.round(img.naturalHeight*s));
+  const g=c.getContext('2d');
+  g.imageSmoothingQuality='high';
+  g.drawImage(img,0,0,c.width,c.height);
+  // pre-process to an "engrave intensity" alpha map: alpha = darkness × srcAlpha
+  const src=g.getImageData(0,0,c.width,c.height);
+  const layer={type:'image', name, x:KEY.W/2, y:defaultY(),
+    w:Math.min(12,KEY.W*0.7), rot:0, aspect:c.height/c.width, invert:false, _src:src};
+  bakeImage(layer);
+  addLayer(layer);
+}
+function bakeImage(l){
+  const {width,height,data}=l._src;
+  const out=new ImageData(width,height);
+  const n=width*height, darks=new Float32Array(n);
+  let lo=1, hi=0;
+  for(let j=0;j<n;j++){
+    const i=j*4;
+    const lum=(0.2126*data[i]+0.7152*data[i+1]+0.0722*data[i+2])/255;
+    const dark=l.invert?lum:1-lum;
+    darks[j]=dark;
+    if(data[i+3]>8){ if(dark<lo)lo=dark; if(dark>hi)hi=dark; }
+  }
+  // auto-contrast: stretch the used darkness range to full intensity so
+  // light artwork still shows/engraves. Off => raw darkness values.
+  const stretch=(l.autoC!==false)&&(hi-lo>0.02);
+  for(let j=0;j<n;j++){
+    const i=j*4;
+    const d=stretch?clamp((darks[j]-lo)/(hi-lo),0,1):darks[j];
+    out.data[i]=out.data[i+1]=out.data[i+2]=0;
+    out.data[i+3]=Math.round(d*data[i+3]);
+  }
+  const c=document.createElement('canvas'); c.width=width; c.height=height;
+  c.getContext('2d').putImageData(out,0,0);
+  l._baked=c;
+}
+const getSel=()=>state.layers[state.side].find(l=>l.id===state.sel)||null;
+function delLayer(id){
+  const arr=state.layers[state.side];
+  const i=arr.findIndex(l=>l.id===id);
+  if(i>=0) arr.splice(i,1);
+  if(state.sel===id) state.sel=null;
+  refresh();
+}
+
+/* =====================================================================
+   RENDERING
+   ===================================================================== */
+const editor=$('#editor'), ectx=editor.getContext('2d');
+const pvF=$('#pvFront'), pvB=$('#pvBack');
+let PXMM=11, PAD=46;          // editor px per mm + canvas padding(px)
+const DPR=Math.min(2,window.devicePixelRatio||1);
+
+function sizeCanvases(){
+  const wrap=editor.parentElement;
+  const availH=(wrap.clientHeight||620)-30, availW=(wrap.clientWidth||480)-30;
+  PXMM=clamp(Math.min((availH-2*PAD)/KEY.H,(availW-2*PAD)/KEY.W), 6, 44);
+  const w=Math.round(KEY.W*PXMM+2*PAD), h=Math.round(KEY.H*PXMM+2*PAD);
+  editor.width=w*DPR; editor.height=h*DPR;
+  editor.style.width=w+'px'; editor.style.height=h+'px';
+  const ps=clamp(153/KEY.H, 3.4, 12);   // small models get a larger preview scale
+  [pvF,pvB].forEach(c=>{c.width=KEY.W*ps*DPR; c.height=KEY.H*ps*DPR;
+    c.style.width=(KEY.W*ps)+'px'; c.style.height=(KEY.H*ps)+'px';});
+}
+
+function drawKeyBody(g,side){ // g is in mm space
+  const st=KEY.style;
+  // connector
+  if(KEY.conn.type==='usbc'){
+    g.fillStyle='#101216';
+    const cp=new Path2D(); roundedRect(cp,(KEY.W-KEY.conn.w)/2-1.4,0.4,KEY.conn.w+2.8,KEY.bodyTop+2,1.8); g.fill(cp);
+    const tab=new Path2D(); roundedRect(tab,(KEY.W-KEY.conn.w)/2,0,KEY.conn.w,KEY.conn.h,KEY.conn.r);
+    g.fillStyle='#8d949e'; g.fill(tab);
+    const slot=new Path2D(); roundedRect(slot,(KEY.W-KEY.conn.w)/2+0.9,2.1,KEY.conn.w-1.8,2.2,1.1);
+    g.fillStyle='#3a3f47'; g.fill(slot);
+  } else if(KEY.conn.type==='usba'){
+    const tab=new Path2D(); roundedRect(tab,(KEY.W-KEY.conn.w)/2,0,KEY.conn.w,KEY.conn.h,KEY.conn.r);
+    g.fillStyle='#9aa1aa'; g.fill(tab);
+    g.strokeStyle='#5c626b'; g.lineWidth=0.2; g.stroke(tab);
+    g.fillStyle='#4a4f57';
+    const hw=KEY.conn.w*0.22;
+    g.fillRect(KEY.W/2-KEY.conn.w*0.30-hw/2, 1.6, hw, 1.7);
+    g.fillRect(KEY.W/2+KEY.conn.w*0.30-hw/2, 1.6, hw, 1.7);
+  }
+  // body
+  const body=new Path2D(); roundedRect(body,0,KEY.bodyTop,KEY.W,KEY.H-KEY.bodyTop,KEY.bodyR);
+  const grad=g.createLinearGradient(0,0,KEY.W,0);
+  grad.addColorStop(0,st.b0); grad.addColorStop(0.5,st.b1); grad.addColorStop(1,st.b2);
+  g.fillStyle=grad; g.fill(body);
+  g.strokeStyle='#41464e'; g.lineWidth=0.25; g.stroke(body);
+  // keyring hole
+  if(KEY.hole){
+    g.fillStyle='#0F1114';
+    g.beginPath(); g.arc(KEY.W/2,KEY.hole.y,KEY.hole.d/2,0,Math.PI*2); g.fill();
+    g.strokeStyle='#4a4f57'; g.lineWidth=0.2; g.stroke();
+  }
+  if(side==='front' && KEY.pad){
+    const r=KEY.pad.d/2, cx=KEY.W/2, cy=KEY.pad.y;
+    if(st.pad==='bio'){
+      // fingerprint sensor: steel ring + dark sensor + ridge arcs
+      g.fillStyle='#b6bcc4'; g.beginPath(); g.arc(cx,cy,r,0,Math.PI*2); g.fill();
+      g.fillStyle='#14161a'; g.beginPath(); g.arc(cx,cy,r*0.74,0,Math.PI*2); g.fill();
+      g.strokeStyle='#3d434c'; g.lineWidth=0.18;
+      for(let i=1;i<=3;i++){ g.beginPath(); g.arc(cx,cy,r*0.74*i/4,-0.7,Math.PI+0.7); g.stroke(); }
+    } else {
+      const gg=g.createRadialGradient(cx-1.5,cy-1.5,r*0.2,cx,cy,r);
+      gg.addColorStop(0,'#f0c96a'); gg.addColorStop(0.65,'#d8a52f'); gg.addColorStop(1,'#8d691c');
+      g.fillStyle=gg; g.beginPath(); g.arc(cx,cy,r,0,Math.PI*2); g.fill();
+      g.strokeStyle='#6b511a'; g.lineWidth=0.22;
+      g.beginPath(); g.arc(cx,cy,r*0.72,0,Math.PI*2); g.stroke();
+      g.beginPath(); g.arc(cx,cy,r*0.42,0,Math.PI*2); g.stroke();
+    }
+  } else if(side==='back' && KEY.nfc){
+    g.fillStyle='rgba(255,255,255,0.05)';
+    g.beginPath(); g.arc(KEY.W/2,KEY.pad?KEY.pad.y:KEY.H*0.55,3.4,0,Math.PI*2); g.fill(); // NFC coil hint
+  }
+}
+
+function drawLayerInto(g,l){ // g in mm space; draws black art
+  g.save();
+  g.translate(l.x,l.y); g.rotate(l.rot*Math.PI/180);
+  const w=l.w, h=l.w*l.aspect;
+  if(l.type==='vector'){
+    g.scale(w/2,w/2*(l.aspect||1));  // unit box -1..1
+    g.fillStyle='#000';
+    if(l.invert){
+      // negative plate: bounding box filled, shape knocked out (even-odd flip)
+      const p=new Path2D(); p.rect(-1,-1,2,2); p.addPath(LIB[l.vec].make());
+      g.fill(p,'evenodd');
+    } else {
+      g.fill(LIB[l.vec].make(),'evenodd');
+    }
+  } else if(l.type==='text'){
+    if(l.invert){
+      // negative plate via offscreen: filled box with the text punched out
+      const TC=1024;
+      const tc=document.createElement('canvas');
+      const mg=tc.getContext('2d'); mg.font='100px '+l.font;
+      const met=mg.measureText(l.text);
+      const asc=met.actualBoundingBoxAscent||75, desc=met.actualBoundingBoxDescent||25;
+      const tw=Math.max(1,met.width), th=asc+desc;
+      tc.width=TC; tc.height=Math.max(1,Math.round(TC*th/tw));
+      const tg=tc.getContext('2d');
+      tg.fillStyle='#000'; tg.fillRect(0,0,tc.width,tc.height);
+      tg.globalCompositeOperation='destination-out';
+      const s=TC/tw;
+      tg.font=(100*s)+'px '+l.font; tg.textAlign='center'; tg.textBaseline='alphabetic';
+      tg.fillText(l.text, tc.width/2, asc*s);
+      g.drawImage(tc,-w/2,-h/2,w,h);
+    } else {
+      g.fillStyle='#000';
+      g.font='100px '+l.font; g.textAlign='center'; g.textBaseline='middle';
+      const m=g.measureText(l.text);
+      const s=w/Math.max(1,m.width);
+      g.scale(s,s); g.fillText(l.text,0,0);
+    }
+  } else if(l.type==='image'){
+    g.drawImage(l._baked,-w/2,-h/2,w,h);
+  }
+  g.restore();
+}
+
+// off-screen artwork canvas (alpha = engrave intensity), clipped by mask
+function renderArt(side,pxmm,clip=true){
+  const c=document.createElement('canvas');
+  c.width=Math.ceil(KEY.W*pxmm); c.height=Math.ceil(KEY.H*pxmm);
+  const g=c.getContext('2d');
+  g.scale(pxmm,pxmm);
+  if(clip){ g.save(); g.clip(maskPath(side),'evenodd'); }
+  state.layers[side].forEach(l=>drawLayerInto(g,l));
+  if(clip) g.restore();
+  return c;
+}
+function tint(canvas,color){
+  const c=document.createElement('canvas'); c.width=canvas.width; c.height=canvas.height;
+  const g=c.getContext('2d');
+  g.drawImage(canvas,0,0);
+  g.globalCompositeOperation='source-in';
+  g.fillStyle=color; g.fillRect(0,0,c.width,c.height);
+  return c;
+}
+
+// portion of the artwork that falls OUTSIDE the engrave mask (will be clipped)
+function renderClippedAway(side,pxmm){
+  const c=renderArt(side,pxmm,false);            // full, unclipped art
+  const g=c.getContext('2d');
+  g.globalCompositeOperation='destination-out';  // erase everything inside the mask
+  g.scale(pxmm,pxmm);
+  g.fill(maskPath(side),'evenodd');
+  return c;                                      // remainder = clipped-off part
+}
+
+function renderEditor(){
+  const g=ectx;
+  g.setTransform(DPR,0,0,DPR,0,0);
+  g.clearRect(0,0,editor.width,editor.height);
+  g.translate(PAD,PAD);
+
+  // mm rulers
+  g.strokeStyle='#262B33'; g.fillStyle='#5b6470';
+  g.font='9px "IBM Plex Mono",monospace'; g.textAlign='center'; g.lineWidth=1;
+  for(let mm=0;mm<=KEY.H;mm+=1){
+    const y=mm*PXMM, maj=mm%5===0;
+    g.beginPath(); g.moveTo(-8,y); g.lineTo(maj?-16:-12,y); g.stroke();
+    if(mm%10===0){g.save();g.textAlign='right';g.fillText(mm,-19,y+3);g.restore();}
+  }
+  for(let mm=0;mm<=KEY.W;mm+=1){
+    const x=mm*PXMM, maj=mm%5===0;
+    g.beginPath(); g.moveTo(x,-8); g.lineTo(x,maj?-16:-12); g.stroke();
+    if(mm%5===0) g.fillText(mm,x,-19);
+  }
+
+  g.save(); g.scale(PXMM,PXMM);
+  drawKeyBody(g,state.side);
+  g.restore();
+
+  // artwork: engraved (clipped) look, then the clipped-away part in orange on top
+  const lit=tint(renderArt(state.side,PXMM*DPR,true),'#dfe3e8');
+  g.drawImage(lit,0,0,KEY.W*PXMM,KEY.H*PXMM);
+  const cut=tint(renderClippedAway(state.side,PXMM*DPR),'rgba(230,92,60,0.75)');
+  g.drawImage(cut,0,0,KEY.W*PXMM,KEY.H*PXMM);
+
+  // clip boundary (dashed)
+  g.save(); g.scale(PXMM,PXMM);
+  g.setLineDash([0.7,0.7]); g.lineWidth=0.16; g.strokeStyle='rgba(224,169,62,0.85)';
+  g.stroke(maskPath(state.side));
+  g.restore();
+
+  // selection box
+  const sel=getSel();
+  if(sel){
+    g.save(); g.scale(PXMM,PXMM);
+    g.translate(sel.x,sel.y); g.rotate(sel.rot*Math.PI/180);
+    const w=sel.w, h=sel.w*sel.aspect;
+    g.setLineDash([0.5,0.35]); g.lineWidth=0.14; g.strokeStyle='#E0A93E';
+    g.strokeRect(-w/2,-h/2,w,h);
+    g.setLineDash([]); g.fillStyle='#E0A93E';
+    [[-w/2,-h/2],[w/2,-h/2],[w/2,h/2],[-w/2,h/2]].forEach(pt=>{
+      g.beginPath(); g.arc(pt[0],pt[1],0.35,0,Math.PI*2); g.fill();});
+    g.restore();
+  }
+}
+
+function renderPreview(canvas,side){
+  const g=canvas.getContext('2d');
+  const pxmm=canvas.width/KEY.W;
+  g.setTransform(1,0,0,1,0,0);
+  g.clearRect(0,0,canvas.width,canvas.height);
+  g.save(); g.scale(pxmm,pxmm); drawKeyBody(g,side); g.restore();
+  const lit=tint(renderArt(side,pxmm,true),'#e8ebef');
+  g.drawImage(lit,0,0);
+}
+
+function refresh(){
+  renderEditor();
+  renderPreview(pvF,'front');
+  renderPreview(pvB,'back');
+  renderLayerList();
+  renderProps();
+}
+
+/* =====================================================================
+   LAYER LIST + PROPERTIES UI
+   ===================================================================== */
+function renderLayerList(){
+  $('#layersSide').textContent=state.side.toUpperCase();
+  $('#copyAll').textContent='Copy design → '+(state.side==='front'?'BACK':'FRONT');
+  const box=$('#layers'); box.innerHTML='';
+  const arr=state.layers[state.side];
+  if(!arr.length){ box.innerHTML='<div class="empty">No layers yet — pick a motif, add text, or upload artwork.</div>'; return; }
+  [...arr].reverse().forEach(l=>{
+    const d=document.createElement('div');
+    d.className='layerItem'+(l.id===state.sel?' sel':'');
+    d.innerHTML=`<span class="tag">${l.type.slice(0,3).toUpperCase()}</span><span class="nm">${l.name}</span>`;
+    const up=document.createElement('button'); up.className='mini'; up.textContent='▲'; up.title='Bring forward';
+    up.onclick=e=>{e.stopPropagation(); const i=arr.indexOf(l); if(i<arr.length-1){[arr[i],arr[i+1]]=[arr[i+1],arr[i]]; refresh();}};
+    const dn=document.createElement('button'); dn.className='mini'; dn.textContent='▼'; dn.title='Send back';
+    dn.onclick=e=>{e.stopPropagation(); const i=arr.indexOf(l); if(i>0){[arr[i],arr[i-1]]=[arr[i-1],arr[i]]; refresh();}};
+    const del=document.createElement('button'); del.className='mini'; del.textContent='✕'; del.title='Delete';
+    del.onclick=e=>{e.stopPropagation(); delLayer(l.id);};
+    d.append(up,dn,del);
+    d.onclick=()=>{state.sel=l.id; refresh();};
+    box.appendChild(d);
+  });
+}
+
+function propRow(label,min,max,step,val,cb){
+  const row=document.createElement('div'); row.className='row';
+  row.innerHTML=`<label>${label}</label>`;
+  const r=document.createElement('input'); r.type='range'; r.min=min; r.max=max; r.step=step; r.value=val;
+  const v=document.createElement('span'); v.className='val';
+  const t=document.createElement('input'); t.value=(+val).toFixed(step<1?1:0); v.appendChild(t);
+  r.oninput=()=>{t.value=(+r.value).toFixed(step<1?1:0); cb(+r.value);};
+  t.onchange=()=>{const n=clamp(parseFloat(t.value)||0,min,max); r.value=n; t.value=n.toFixed(step<1?1:0); cb(n);};
+  row.append(r,v); return row;
+}
+
+function renderProps(){
+  const box=$('#props'); box.innerHTML='';
+  const l=getSel();
+  if(!l){ box.innerHTML='<div class="empty">Nothing selected — click a layer on the key or in the layer list.</div>'; return; }
+  box.appendChild(propRow('Width mm',1,60,0.1,l.w,v=>{l.w=v; refresh();}));
+  box.appendChild(propRow('X mm',-20,KEY.W+20,0.1,l.x,v=>{l.x=v; refresh();}));
+  box.appendChild(propRow('Y mm',-20,KEY.H+20,0.1,l.y,v=>{l.y=v; refresh();}));
+  box.appendChild(propRow('Rotate °',-180,180,1,l.rot,v=>{l.rot=v; refresh();}));
+  const inv=document.createElement('label'); inv.className='chk';
+  inv.innerHTML='<input type="checkbox"'+(l.invert?' checked':'')+'> '+
+    (l.type==='image'?'Invert colours (light art engraves)':'Invert (negative / knockout plate)');
+  inv.querySelector('input').onchange=e=>{
+    l.invert=e.target.checked;
+    if(l.type==='image') bakeImage(l);
+    refresh();
+  };
+  box.appendChild(inv);
+  if(l.type==='image'){
+    const ac=document.createElement('label'); ac.className='chk';
+    ac.innerHTML='<input type="checkbox"'+(l.autoC!==false?' checked':'')+'> Auto contrast';
+    ac.querySelector('input').onchange=e=>{l.autoC=e.target.checked; bakeImage(l); refresh();};
+    box.appendChild(ac);
+  }
+  const br=document.createElement('div'); br.className='btnrow';
+  const dup=document.createElement('button'); dup.textContent='Duplicate';
+  dup.onclick=()=>{const c=Object.assign({},l); c.y=clamp(c.y+3,0,KEY.H); addLayer(c);};
+  const other=document.createElement('button');
+  other.textContent='Copy → '+(state.side==='front'?'BACK':'FRONT');
+  other.onclick=()=>{const c=Object.assign({},l); c.id=uid++;
+    state.layers[state.side==='front'?'back':'front'].push(c); refresh();};
+  const del=document.createElement('button'); del.textContent='Delete'; del.className='danger';
+  del.onclick=()=>delLayer(l.id);
+  br.append(dup,other,del); box.appendChild(br);
+}
+
+/* =====================================================================
+   POINTER / KEYBOARD INTERACTION
+   ===================================================================== */
+function evtMM(e){
+  const r=editor.getBoundingClientRect();
+  return { x:(e.clientX-r.left-PAD)/PXMM, y:(e.clientY-r.top-PAD)/PXMM };
+}
+function hitTest(mm){
+  const arr=state.layers[state.side];
+  for(let i=arr.length-1;i>=0;i--){
+    const l=arr[i], dx=mm.x-l.x, dy=mm.y-l.y, a=-l.rot*Math.PI/180;
+    const rx=dx*Math.cos(a)-dy*Math.sin(a), ry=dx*Math.sin(a)+dy*Math.cos(a);
+    if(Math.abs(rx)<=l.w/2+0.5 && Math.abs(ry)<=l.w*l.aspect/2+0.5) return l;
+  }
+  return null;
+}
+let drag=null;
+const touches=new Map();   // active pointers on the canvas
+let pinch=null;            // {w0,rot0,d0,a0}
+
+function pinchInfo(){
+  const [a,b]=[...touches.values()];
+  return { d:Math.hypot(b.x-a.x,b.y-a.y), a:Math.atan2(b.y-a.y,b.x-a.x) };
+}
+editor.addEventListener('pointerdown',e=>{
+  e.preventDefault();
+  editor.setPointerCapture(e.pointerId);
+  touches.set(e.pointerId,{x:e.clientX,y:e.clientY});
+  if(touches.size===1){
+    const mm=evtMM(e), l=hitTest(mm);
+    state.sel=l?l.id:null;
+    if(l){ drag={l,ox:mm.x-l.x,oy:mm.y-l.y}; editor.classList.add('dragging'); }
+    refresh();
+  } else if(touches.size===2){
+    drag=null;
+    const l=getSel();
+    if(l){ const p=pinchInfo(); pinch={w0:l.w,rot0:l.rot,d0:p.d,a0:p.a}; }
+  }
+});
+editor.addEventListener('pointermove',e=>{
+  if(!touches.has(e.pointerId)) return;
+  touches.set(e.pointerId,{x:e.clientX,y:e.clientY});
+  if(touches.size===2 && pinch){
+    const l=getSel(); if(!l) return;
+    const p=pinchInfo();
+    l.w=clamp(pinch.w0*(p.d/Math.max(1,pinch.d0)),1,60);
+    let rot=pinch.rot0+(p.a-pinch.a0)*180/Math.PI;
+    rot=((rot+540)%360)-180;
+    l.rot=Math.round(rot*2)/2;
+    refresh();
+  } else if(drag){
+    const mm=evtMM(e);
+    drag.l.x=clamp(mm.x-drag.ox,-20,KEY.W+20);
+    drag.l.y=clamp(mm.y-drag.oy,-20,KEY.H+20);
+    refresh();
+  }
+});
+function endPointer(e){
+  touches.delete(e.pointerId);
+  if(touches.size<2) pinch=null;
+  if(touches.size===0){ drag=null; editor.classList.remove('dragging'); }
+}
+editor.addEventListener('pointerup',endPointer);
+editor.addEventListener('pointercancel',endPointer);
+// stop Safari's page-level pinch zoom fighting the canvas gesture
+['gesturestart','gesturechange','gestureend'].forEach(ev=>
+  document.addEventListener(ev,e=>e.preventDefault(),{passive:false}));
+editor.addEventListener('wheel',e=>{
+  const l=getSel(); if(!l) return;
+  e.preventDefault();
+  if(e.altKey){ l.rot=(l.rot + (e.deltaY>0?3:-3)+540)%360-180; }
+  else { l.w=clamp(l.w*(e.deltaY>0?0.96:1.04),1,60); }
+  refresh();
+},{passive:false});
+window.addEventListener('keydown',e=>{
+  if(e.target.tagName==='INPUT'||e.target.tagName==='SELECT') return;
+  const l=getSel(); if(!l) return;
+  const s=e.shiftKey?1:0.1;
+  if(e.key==='ArrowLeft'){l.x-=s;} else if(e.key==='ArrowRight'){l.x+=s;}
+  else if(e.key==='ArrowUp'){l.y-=s;} else if(e.key==='ArrowDown'){l.y+=s;}
+  else if(e.key==='Delete'||e.key==='Backspace'){delLayer(l.id); return;}
+  else if(e.key==='i'||e.key==='I'){l.invert=!l.invert; if(l.type==='image')bakeImage(l);}
+  else return;
+  e.preventDefault(); refresh();
+});
+
+/* =====================================================================
+   SIDE TABS / MASK CONTROLS
+   ===================================================================== */
+function setSide(s){
+  state.side=s; state.sel=null;
+  $('#tabFront').classList.toggle('active',s==='front');
+  $('#tabBack').classList.toggle('active',s==='back');
+  $('#stSide').textContent=s.toUpperCase();
+  refresh();
+}
+$('#tabFront').onclick=()=>setSide('front');
+$('#tabBack').onclick=()=>setSide('back');
+
+$('#copyAll').onclick=()=>{
+  const from=state.side, to=from==='front'?'back':'front';
+  const src=state.layers[from];
+  if(!src.length){ alert('Nothing to copy — the '+from.toUpperCase()+' side has no layers.'); return; }
+  if(state.layers[to].length &&
+     !confirm('Replace the current '+to.toUpperCase()+' design with an exact copy of '+from.toUpperCase()+'?')) return;
+  state.layers[to]=src.map(l=>Object.assign({},l,{id:uid++}));
+  refresh();
+};
+
+function bindMask(rangeId,valId,obj,key){
+  const r=$(rangeId), v=$(valId);
+  r.value=obj[key]; v.value=obj[key].toFixed(1);
+  r.oninput=()=>{obj[key]=+r.value; v.value=(+r.value).toFixed(1); refresh();};
+  v.onchange=()=>{const n=clamp(parseFloat(v.value)||0,+r.min,+r.max); obj[key]=n; r.value=n; v.value=n.toFixed(1); refresh();};
+}
+bindMask('#mBorder','#mBorderV',MASK,'border');
+bindMask('#mHole','#mHoleV',MASK,'holeClear');
+bindMask('#mPad','#mPadV',MASK,'padClear');
+function bindGeom(id,get,set){
+  const el=$(id);
+  el.onchange=()=>{const n=parseFloat(el.value);
+    if(isFinite(n)&&n>0) set(n);
+    syncGeomInputs(); refresh();};
+}
+function syncGeomInputs(){
+  const put=(id,val,ok)=>{const el=$(id); el.disabled=!ok; el.value=ok?val.toFixed(1):'—';};
+  put('#gHoleD',KEY.hole?KEY.hole.d:0,!!KEY.hole);
+  put('#gHoleY',KEY.hole?KEY.hole.y:0,!!KEY.hole);
+  put('#gPadD',KEY.pad?KEY.pad.d:0,!!KEY.pad);
+  put('#gPadY',KEY.pad?KEY.pad.y:0,!!KEY.pad);
+}
+bindGeom('#gHoleD',()=>KEY.hole?.d,n=>{if(KEY.hole)KEY.hole.d=n;});
+bindGeom('#gHoleY',()=>KEY.hole?.y,n=>{if(KEY.hole)KEY.hole.y=n;});
+bindGeom('#gPadD',()=>KEY.pad?.d,n=>{if(KEY.pad)KEY.pad.d=n;});
+bindGeom('#gPadY',()=>KEY.pad?.y,n=>{if(KEY.pad)KEY.pad.y=n;});
+syncGeomInputs();
+
+/* ---------- model selector ---------- */
+const modelSel=$('#model');
+Object.entries(MODELS).forEach(([id,m])=>{
+  const o=document.createElement('option'); o.value=id; o.textContent=m.label;
+  modelSel.appendChild(o);
+});
+modelSel.value=currentModel;
+function switchModel(id){
+  applyModel(id);
+  modelSel.value=currentModel;
+  $('#modelName').textContent=MODELS[currentModel].label.replace(/^YubiKey\s*/i,'').replace(/\s*\(.*\)$/,'').toUpperCase();
+  $('#dims').textContent=KEY.W.toFixed(1)+' × '+KEY.H.toFixed(1)+' mm · design → clip → export @ true scale';
+  syncGeomInputs();
+  sizeCanvases();
+  refresh();
+}
+modelSel.onchange=()=>switchModel(modelSel.value);
+
+/* =====================================================================
+   UPLOAD + TEXT
+   ===================================================================== */
+$('#fileBtn').onclick=()=>$('#file').click();
+$('#file').onchange=e=>{
+  const f=e.target.files[0]; if(!f) return;
+  const rd=new FileReader();
+  rd.onload=()=>{
+    const img=new Image();
+    img.onload=()=>{
+      if(!img.naturalWidth){ alert('That image could not be decoded.'); return; }
+      try{ addImage(img,f.name.replace(/\.[^.]+$/,'')); }
+      catch(err){ alert('Could not process image: '+err.message); }
+    };
+    img.onerror=()=>alert('Could not decode that image — use a standard PNG or JPEG.');
+    img.src=rd.result;
+  };
+  rd.onerror=()=>alert('Could not read that file.');
+  rd.readAsDataURL(f);
+  e.target.value='';
+};
+$('#txtAdd').onclick=()=>{
+  const t=$('#txtInput').value.trim();
+  if(t) addText(t,$('#txtFont').value);
+};
+$('#txtInput').addEventListener('keydown',e=>{if(e.key==='Enter')$('#txtAdd').click();});
+
+/* =====================================================================
+   EXPORT — PNG at true physical scale (pHYs chunk = embedded DPI)
+   ===================================================================== */
+const CRC_TABLE=(()=>{const t=new Uint32Array(256);
+  for(let n=0;n<256;n++){let c=n;for(let k=0;k<8;k++)c=c&1?0xEDB88320^(c>>>1):c>>>1;t[n]=c;}return t;})();
+function crc32(bytes){let c=0xFFFFFFFF;
+  for(let i=0;i<bytes.length;i++)c=CRC_TABLE[(c^bytes[i])&0xFF]^(c>>>8);
+  return (c^0xFFFFFFFF)>>>0;}
+function addPhys(pngBytes,pxPerMm){
+  const ppm=Math.round(pxPerMm*1000);
+  const chunk=new Uint8Array(21); const dv=new DataView(chunk.buffer);
+  dv.setUint32(0,9);                       // length
+  chunk.set([0x70,0x48,0x59,0x73],4);      // 'pHYs'
+  dv.setUint32(8,ppm); dv.setUint32(12,ppm); chunk[16]=1;
+  dv.setUint32(17,crc32(chunk.subarray(4,17)));
+  // insert after IHDR (byte 8 sig + 25 IHDR chunk = 33)
+  const out=new Uint8Array(pngBytes.length+21);
+  out.set(pngBytes.subarray(0,33),0);
+  out.set(chunk,33);
+  out.set(pngBytes.subarray(33),54);
+  return out;
+}
+async function exportSide(side){
+  const pxmm=+$('#expRes').value;
+  const mirror=side==='back'&&$('#expMirror').checked;
+  const outline=$('#expOutline').checked;
+  const c=document.createElement('canvas');
+  c.width=Math.round(KEY.W*pxmm); c.height=Math.round(KEY.H*pxmm);
+  const g=c.getContext('2d');
+  g.fillStyle='#FFFFFF'; g.fillRect(0,0,c.width,c.height);
+  g.save();
+  if(mirror){ g.translate(c.width,0); g.scale(-1,1); }
+  const art=tint(renderArt(side,pxmm,true),'#000000');
+  g.drawImage(art,0,0);
+  if(outline){
+    g.scale(pxmm,pxmm);
+    g.strokeStyle='#000'; g.lineWidth=0.08;
+    const body=new Path2D(); roundedRect(body,0,KEY.bodyTop,KEY.W,KEY.H-KEY.bodyTop,KEY.bodyR);
+    g.stroke(body);
+    if(KEY.hole){ g.beginPath(); g.arc(KEY.W/2,KEY.hole.y,KEY.hole.d/2,0,Math.PI*2); g.stroke(); }
+    if(side==='front' && KEY.pad){ g.beginPath(); g.arc(KEY.W/2,KEY.pad.y,KEY.pad.d/2,0,Math.PI*2); g.stroke(); }
+  }
+  g.restore();
+  const blob=await new Promise(res=>c.toBlob(res,'image/png'));
+  const bytes=addPhys(new Uint8Array(await blob.arrayBuffer()),pxmm);
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob([bytes],{type:'image/png'}));
+  a.download=`yubikey_${currentModel}_${side}${mirror?'_mirrored':''}_${pxmm}pxmm.png`;
+  a.click(); URL.revokeObjectURL(a.href);
+}
+$('#expFront').onclick=()=>exportSide('front');
+$('#expBack').onclick=()=>exportSide('back');
+
+/* =====================================================================
+   STICKER EXPORT (Cricut print & cut) — Author: Stephen Eaton
+   The clip mask becomes the sticker shape: body inset with the keyring
+   hole (and touch pad on the front) cut out.
+   ===================================================================== */
+function renderSticker(side,pxmm){
+  const c=document.createElement('canvas');
+  c.width=Math.round(KEY.W*pxmm); c.height=Math.round(KEY.H*pxmm);
+  const g=c.getContext('2d');
+  g.save(); g.scale(pxmm,pxmm);
+  g.fillStyle=$('#stBg').value;
+  g.fill(maskPath(side),'evenodd');       // sticker body with holes punched out
+  g.restore();
+  const art=tint(renderArt(side,pxmm,true),$('#stArt').value);
+  g.drawImage(art,0,0);
+  return c;
+}
+function svgMaskPath(side){
+  const f=n=>+n.toFixed(3);
+  const b=MASK.border, x=b, y=KEY.bodyTop+b, w=KEY.W-2*b, h=KEY.H-KEY.bodyTop-2*b;
+  const r=clamp(KEY.bodyR-b,0,Math.min(w,h)/2);
+  let d=`M ${f(x+r)} ${f(y)} L ${f(x+w-r)} ${f(y)} A ${f(r)} ${f(r)} 0 0 1 ${f(x+w)} ${f(y+r)} `+
+        `L ${f(x+w)} ${f(y+h-r)} A ${f(r)} ${f(r)} 0 0 1 ${f(x+w-r)} ${f(y+h)} `+
+        `L ${f(x+r)} ${f(y+h)} A ${f(r)} ${f(r)} 0 0 1 ${f(x)} ${f(y+h-r)} `+
+        `L ${f(x)} ${f(y+r)} A ${f(r)} ${f(r)} 0 0 1 ${f(x+r)} ${f(y)} Z`;
+  const circle=(cx,cy,R)=>` M ${f(cx+R)} ${f(cy)} A ${f(R)} ${f(R)} 0 1 0 ${f(cx-R)} ${f(cy)} A ${f(R)} ${f(R)} 0 1 0 ${f(cx+R)} ${f(cy)} Z`;
+  if(KEY.hole) d+=circle(KEY.W/2,KEY.hole.y,KEY.hole.d/2+MASK.holeClear);
+  if(side==='front'&&KEY.pad) d+=circle(KEY.W/2,KEY.pad.y,KEY.pad.d/2+MASK.padClear);
+  return d;
+}
+function download(blob,name){
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob); a.download=name;
+  a.click(); URL.revokeObjectURL(a.href);
+}
+async function exportStickerPNG(){
+  const side=state.side, pxmm=+$('#expRes').value;
+  const c=renderSticker(side,pxmm);
+  const blob=await new Promise(res=>c.toBlob(res,'image/png'));
+  const bytes=addPhys(new Uint8Array(await blob.arrayBuffer()),pxmm);
+  download(new Blob([bytes],{type:'image/png'}),
+    `yubikey_${currentModel}_${side}_sticker_${pxmm}pxmm.png`);
+}
+async function exportStickerSVG(){
+  const side=state.side, pxmm=+$('#expRes').value;
+  const png=renderSticker(side,pxmm).toDataURL('image/png');
+  const svg=
+`<?xml version="1.0" encoding="UTF-8"?>
+<!-- YubiKey sticker · ${MODELS[currentModel].label} · ${side} · Author: Stephen Eaton -->
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink"
+     width="${KEY.W}mm" height="${KEY.H}mm" viewBox="0 0 ${KEY.W} ${KEY.H}">
+  <g id="print">
+    <image xlink:href="${png}" href="${png}" x="0" y="0" width="${KEY.W}" height="${KEY.H}"/>
+  </g>
+  <path id="cut" d="${svgMaskPath(side)}" fill="none" stroke="#FF0000" stroke-width="0.1"/>
+</svg>`;
+  download(new Blob([svg],{type:'image/svg+xml'}),
+    `yubikey_${currentModel}_${side}_sticker.svg`);
+}
+$('#stPng').onclick=exportStickerPNG;
+$('#stSvg').onclick=exportStickerSVG;
+
+/* =====================================================================
+   PROJECT SAVE / LOAD
+   ===================================================================== */
+$('#projSave').onclick=()=>{
+  const ser=s=>state.layers[s].map(l=>{
+    const o={type:l.type,name:l.name,x:l.x,y:l.y,w:l.w,rot:l.rot,aspect:l.aspect,invert:!!l.invert};
+    if(l.type==='vector')o.vec=l.vec;
+    if(l.type==='text'){o.text=l.text;o.font=l.font;}
+    if(l.type==='image'){o.autoC=l.autoC;
+      const c=document.createElement('canvas');
+      c.width=l._src.width;c.height=l._src.height;
+      c.getContext('2d').putImageData(l._src,0,0);
+      o.png=c.toDataURL('image/png');}
+    return o;});
+  const data={app:'yubikey-engraver',author:'Stephen Eaton',v:2,
+    model:currentModel,key:KEY,mask:MASK,layers:{front:ser('front'),back:ser('back')}};
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob([JSON.stringify(data)],{type:'application/json'}));
+  a.download='yubikey-engraving-project.json'; a.click(); URL.revokeObjectURL(a.href);
+};
+$('#projLoad').onclick=()=>$('#projFile').click();
+$('#projFile').onchange=e=>{
+  const f=e.target.files[0]; if(!f) return;
+  const rd=new FileReader();
+  rd.onload=async()=>{
+    try{
+      const d=JSON.parse(rd.result);
+      switchModel(d.model||'5c-nfc');
+      Object.assign(MASK,d.mask||{});
+      if(d.key){
+        if(KEY.hole&&d.key.hole)Object.assign(KEY.hole,d.key.hole);
+        if(KEY.pad&&d.key.pad)Object.assign(KEY.pad,d.key.pad);
+      }
+      for(const side of ['front','back']){
+        state.layers[side]=[];
+        for(const o of (d.layers?.[side]||[])){
+          const l=Object.assign({id:uid++},o);
+          if(l.type==='image'&&o.png){
+            const img=new Image();
+            await new Promise(r=>{img.onload=r;img.src=o.png;});
+            const c=document.createElement('canvas');c.width=img.width;c.height=img.height;
+            const g=c.getContext('2d');g.drawImage(img,0,0);
+            l._src=g.getImageData(0,0,c.width,c.height);
+            bakeImage(l);
+          }
+          state.layers[side].push(l);
+        }
+      }
+      state.sel=null;
+      bindMask('#mBorder','#mBorderV',MASK,'border');
+      bindMask('#mHole','#mHoleV',MASK,'holeClear');
+      bindMask('#mPad','#mPadV',MASK,'padClear');
+      syncGeomInputs();
+      refresh();
+    }catch(err){alert('Could not load project: '+err.message);}
+  };
+  rd.readAsText(f); e.target.value='';
+};
+
+/* ---------- boot ---------- */
+
+/* PWA bootstrap — Author: Stephen Eaton
+   Generates the app icon at runtime and injects a manifest so the page is
+   installable: Chrome/Edge on macOS & Windows ("Install app"), and standalone
+   on iOS via Safari → Share → Add to Home Screen. */
+(function pwaBootstrap(){
+  function makeIcon(size){
+    const c=document.createElement('canvas'); c.width=c.height=size;
+    const g=c.getContext('2d');
+    g.fillStyle='#0F1114'; g.fillRect(0,0,size,size);
+    const cx=size/2, cy=size/2;
+    // key silhouette
+    const kw=size*0.30, kh=size*0.72, r=size*0.055;
+    g.fillStyle='#23272d';
+    const p=new Path2D(); roundedRect(p,cx-kw/2,cy-kh/2,kw,kh,r); g.fill(p);
+    g.strokeStyle='#454b54'; g.lineWidth=size*0.012; g.stroke(p);
+    // gold pad
+    g.fillStyle='#E0A93E';
+    g.beginPath(); g.arc(cx,cy+kh*0.02,kw*0.32,0,Math.PI*2); g.fill();
+    g.strokeStyle='#8d691c'; g.lineWidth=size*0.014;
+    g.beginPath(); g.arc(cx,cy+kh*0.02,kw*0.20,0,Math.PI*2); g.stroke();
+    // keyring hole
+    g.fillStyle='#0F1114';
+    g.beginPath(); g.arc(cx,cy+kh*0.36,kw*0.14,0,Math.PI*2); g.fill();
+    return c.toDataURL('image/png');
+  }
+  const icon192=makeIcon(192), icon512=makeIcon(512);
+  const manifest={
+    name:'YubiKey 5C NFC Engraver', short_name:'YK Engraver',
+    start_url:location.href.split('#')[0], scope:'./',
+    display:'standalone', background_color:'#0F1114', theme_color:'#0F1114',
+    icons:[{src:icon192,sizes:'192x192',type:'image/png'},
+           {src:icon512,sizes:'512x512',type:'image/png'}]
+  };
+  const link=document.createElement('link');
+  link.rel='manifest';
+  link.href='data:application/manifest+json,'+encodeURIComponent(JSON.stringify(manifest));
+  document.head.appendChild(link);
+  const apple=document.createElement('link');
+  apple.rel='apple-touch-icon'; apple.href=icon192;
+  document.head.appendChild(apple);
+})();
+
+// touch-aware hint text
+if(matchMedia('(pointer:coarse)').matches){
+  document.querySelector('.hint').innerHTML=
+    'drag&nbsp;move&nbsp;·&nbsp;pinch&nbsp;scale&nbsp;·&nbsp;twist&nbsp;two&nbsp;fingers&nbsp;rotate<br>'+
+    'dashed&nbsp;=&nbsp;clip&nbsp;boundary&nbsp;·&nbsp;orange&nbsp;art&nbsp;=&nbsp;clipped&nbsp;(won\'t&nbsp;engrave)';
+}
+
+window.addEventListener('resize',()=>{sizeCanvases();refresh();});
+switchModel(currentModel);
+</script>
+</body>
+</html>
