@@ -1,5 +1,7 @@
 # YubiKey 5C NFC · Engraving Designer
 
+**🌐 Live demo: <https://madeinoz67.github.io/yubikey-engraver/>**
+
 A single-file, local-first web app for designing laser-engraving artwork for
 YubiKey 5C NFC keys (and other YubiKey / security-key form factors). Open the
 HTML file in any modern browser — **no server, no install, no build step.**
