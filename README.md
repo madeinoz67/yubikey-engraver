@@ -49,11 +49,43 @@ not supported** — the flush USB-stick body leaves no surface to engrave.
 It's a single static HTML file. Edit, refresh the browser, done. No
 dependencies, no build chain.
 
-## Developing with AI
+## Agent instructions
 
-See [`docs/STYLEGUIDE.md`](docs/STYLEGUIDE.md) — the conventions, invariants,
-and forbidden changes any AI (or human) contributor must follow when editing
-the app.
+If you're an AI agent editing this repo, read this section first, then
+[`docs/STYLEGUIDE.md`](docs/STYLEGUIDE.md) for the full conventions and the
+worked examples (add a model / motif / control).
+
+**The app is one file** — `yubikey-engraver.html`. Vanilla HTML / CSS / JS. No
+build step, no bundler, no framework, no `npm`. It runs from `file://` or any
+static host.
+
+- **Do not** split it into multiple files.
+- **Do not** add dependencies — Google Fonts is the only external resource.
+- **Do not** introduce a build tool, transpiler, or TypeScript.
+
+**Never break laser output.** These are load-bearing invariants:
+
+- All key dimensions are in **millimetres**. Export multiplies `mm × px/mm` to
+  render the canvas at true physical size.
+- Export polarity is **black = engrave, white = skip**. Don't invert it.
+- Exported PNG embeds physical DPI (`pHYs`) so it lands at real size in
+  LightBurn / LaserGRBL.
+- The clip mask is **even-odd**: body-inset **minus** the keyring hole, and on
+  the front also **minus** the touch pad.
+
+**Verify before claiming done.** Open `yubikey-engraver.html` in a real browser
+(Chrome / Safari) after every change — check the console, the editor canvas, the
+engraved previews, and run an export. UI / render verification uses a real
+browser screenshot, not `curl`. The live deploy at the URL above mirrors `main`.
+
+**Match the existing style.** Design tokens in `:root`; camelCase IDs; the `$()`
+DOM accessor (`const $ = s => document.querySelector(s)`); single quotes;
+`const` by default; Path2D geometry in a −1…1 unit box filled with `'evenodd'`.
+`MODELS` is the **immutable** catalogue; `KEY` is the **live, calibratable**
+copy — don't confuse them.
+
+**Commits** go straight to `main` (single-author). Pushing to `main`
+auto-deploys to GitHub Pages.
 
 ## Deploy (GitHub Pages)
 
