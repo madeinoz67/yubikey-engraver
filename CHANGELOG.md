@@ -4,6 +4,27 @@ All notable changes to this project are documented here.
 Format based on [Keep a Changelog](https://keepachangelog.com/),
 following [Semantic Versioning](https://semver.org/).
 
+## [0.2.0] — 2026-07-18
+
+Color support for sticker printing.
+
+### Added
+- **COLOR/ENGRAVE view toggle** (header) — drives the editor canvas and the
+  front/back preview thumbnails. ENGRAVE = the existing monochrome laser view;
+  COLOR = full-colour (per-layer colours + image RGB).
+- **Per-layer colour** for vector and text layers — colour picker in the
+  properties panel; the chosen colour shows in COLOR view and the sticker export.
+- **Colour-retaining image layers** — uploaded images keep their original RGB
+  in COLOR view and sticker export (darkness-masked, so white backgrounds drop
+  out). The laser path still uses the monochrome engrave-intensity bake.
+- **Sticker export is full-colour** — dark body (`stBg`) + per-layer colours +
+  image RGB, for Cricut print-and-cut. `stArt` is now the default art colour
+  for newly-added layers.
+
+### Changed
+- `drawLayerInto` / `renderArt` are now mode-aware (`'engrave'` default is
+  identical to prior behavior; `'color'` drives sticker export + COLOR view).
+
 ## [0.1.0] — 2026-07-18
 
 First release.

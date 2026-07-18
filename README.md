@@ -21,6 +21,9 @@ Author: **Stephen Eaton** · License: **MIT**
 - Live **engraved preview** (light-on-black) for both sides
 - **Export** clipped artwork as PNG at true physical scale (`pHYs` DPI embedded),
   ready for LightBurn / laser-engraving software (**black = engrave**)
+- **COLOR view + sticker export** — per-layer colours and full-colour image
+  printing for Cricut print-and-cut (toggle COLOR/ENGRAVE; laser export stays
+  monochrome black-on-white)
 
 ## Supported models
 

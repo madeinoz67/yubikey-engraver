@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <!--
   YubiKey 5C NFC Engraving Designer
-  Version: 0.1.0
+  Version: 0.2.0
   Author: Stephen Eaton
   Single-file local web app. Open directly in a browser (no server needed).
 
@@ -63,6 +63,9 @@
   .ghLinkInline{display:inline-flex;align-items:center;gap:5px;color:var(--gold);font-family:var(--mono);font-size:11px;text-decoration:none;margin-top:6px}
   .ghLinkInline:hover{text-decoration:underline}
   .ghLinkInline svg{width:12px;height:12px;fill:currentColor}
+.viewtoggle{display:flex;border:1px solid var(--line);border-radius:6px;overflow:hidden}
+.viewtoggle button{background:var(--bg);color:var(--dim);border:0;padding:7px 16px;font-family:var(--mono);font-size:12px;letter-spacing:.08em}
+.viewtoggle button.active{background:var(--gold);color:#14100a;font-weight:600}
 
   .col{overflow-y:auto;background:var(--panel);border-right:1px solid var(--line);scrollbar-width:thin}
   .col.right{border-right:0;border-left:1px solid var(--line)}
@@ -146,6 +149,10 @@
     <div class="sidetabs" role="tablist">
       <button id="tabFront" class="active" role="tab">FRONT</button>
       <button id="tabBack" role="tab">BACK</button>
+    </div>
+    <div class="viewtoggle" role="tablist" aria-label="View mode">
+      <button id="viewEngrave" class="active" role="tab">ENGRAVE</button>
+      <button id="viewColor" role="tab">COLOR</button>
     </div>
     <a class="ghLink" href="https://github.com/madeinoz67/yubikey-engraver" target="_blank" rel="noopener noreferrer" aria-label="View source on GitHub"><svg viewBox="0 0 24 24"><path d="M12 .297c-6.63 0-12 5.373-12 12 0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61C4.422 18.07 3.633 17.7 3.633 17.7c-1.087-.744.084-.729.084-.729 1.205.084 1.838 1.236 1.838 1.236 1.07 1.835 2.809 1.305 3.495.998.108-.776.417-1.305.76-1.605-2.665.3-5.466 1.332-5.466 5.93 0 1.31.465 2.38 1.235 3.22-.135.303-.54 1.523.105 3.176 0 0 1.005.322 3.3 1.23.96-.267 1.98-.399 3-.405 1.02.006 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22 0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22 0 1.606-.015 2.896-.015 3.286 0 .315.21.69.825.57C20.565 22.092 24 17.592 24 12.297c0-6.627-5.373-12-12-12"/></svg>GitHub</a>
   </header>
@@ -245,7 +252,7 @@
       <h2>Sticker (Cricut)</h2>
       <div class="row"><label>Sticker</label>
         <input type="color" id="stBg" value="#111318" title="Sticker colour" style="flex:1;height:28px;padding:2px">
-        <input type="color" id="stArt" value="#E6E9ED" title="Artwork colour" style="flex:1;height:28px;padding:2px">
+        <input type="color" id="stArt" value="#E6E9ED" title="Default art colour (new layers)" style="flex:1;height:28px;padding:2px">
       </div>
       <button class="exportBtn ghost" id="stSvg" style="margin-top:0">Sticker SVG · print &amp; cut</button>
       <button class="exportBtn ghost" id="stPng">Sticker PNG · true scale</button>
@@ -260,7 +267,7 @@
       </div>
       <input type="file" id="projFile" accept="application/json" hidden>
       <a class="ghLinkInline" href="https://github.com/madeinoz67/yubikey-engraver" target="_blank" rel="noopener noreferrer"><svg viewBox="0 0 24 24"><path d="M12 .297c-6.63 0-12 5.373-12 12 0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61C4.422 18.07 3.633 17.7 3.633 17.7c-1.087-.744.084-.729.084-.729 1.205.084 1.838 1.236 1.838 1.236 1.07 1.835 2.809 1.305 3.495.998.108-.776.417-1.305.76-1.605-2.665.3-5.466 1.332-5.466 5.93 0 1.31.465 2.38 1.235 3.22-.135.303-.54 1.523.105 3.176 0 0 1.005.322 3.3 1.23.96-.267 1.98-.399 3-.405 1.02.006 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22 0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22 0 1.606-.015 2.896-.015 3.286 0 .315.21.69.825.57C20.565 22.092 24 17.592 24 12.297c0-6.627-5.373-12-12-12"/></svg>View on GitHub ↗</a>
-      <p class="note">Author: Stephen Eaton · v0.1.0</p>
+      <p class="note">Author: Stephen Eaton · v0.2.0</p>
     </div>
   </aside>
 </div>
@@ -316,6 +323,7 @@ const state = {
   side: 'front',
   layers: { front: [], back: [] },
   sel: null,           // selected layer id
+  mode: 'engrave',     // 'engrave' (mono laser) | 'color' (per-layer colour + image RGB)
 };
 let uid = 1;
 
@@ -498,7 +506,8 @@ function addLayer(l){
 const defaultY=()=>KEY.bodyTop+(KEY.H-KEY.bodyTop)*(state.side==='front'?0.25:0.4);
 function addVector(idx){
   addLayer({type:'vector', vec:idx, name:LIB[idx].name,
-    x:KEY.W/2, y:defaultY(), w:Math.min(8,KEY.W*0.55), rot:0, aspect:1});
+    x:KEY.W/2, y:defaultY(), w:Math.min(8,KEY.W*0.55), rot:0, aspect:1,
+    color:$('#stArt').value});
 }
 function addText(txt,font){
   // measure aspect via offscreen canvas
@@ -508,7 +517,7 @@ function addText(txt,font){
   const asc=met.actualBoundingBoxAscent||75, desc=met.actualBoundingBoxDescent||25;
   addLayer({type:'text', text:txt, font, name:'“'+txt+'”',
     x:KEY.W/2, y:defaultY(), w:Math.min(KEY.W*0.8,txt.length*3), rot:0,
-    aspect:(asc+desc)/Math.max(1,met.width)});
+    aspect:(asc+desc)/Math.max(1,met.width), color:$('#stArt').value});
 }
 function addImage(img,name){
   // downscale huge photos: 1600px is far beyond engraving resolution needs,
@@ -543,15 +552,22 @@ function bakeImage(l){
   // auto-contrast: stretch the used darkness range to full intensity so
   // light artwork still shows/engraves. Off => raw darkness values.
   const stretch=(l.autoC!==false)&&(hi-lo>0.02);
+  const outC=new ImageData(width,height);
   for(let j=0;j<n;j++){
     const i=j*4;
     const d=stretch?clamp((darks[j]-lo)/(hi-lo),0,1):darks[j];
-    out.data[i]=out.data[i+1]=out.data[i+2]=0;
-    out.data[i+3]=Math.round(d*data[i+3]);
+    const a=Math.round(d*data[i+3]);
+    out.data[i]=out.data[i+1]=out.data[i+2]=0;          // engrave: black alpha map
+    out.data[i+3]=a;
+    outC.data[i]=data[i]; outC.data[i+1]=data[i+1]; outC.data[i+2]=data[i+2]; // color: original RGB
+    outC.data[i+3]=a;                                     //   …same darkness-based alpha
   }
   const c=document.createElement('canvas'); c.width=width; c.height=height;
   c.getContext('2d').putImageData(out,0,0);
   l._baked=c;
+  const cc=document.createElement('canvas'); cc.width=width; cc.height=height;
+  cc.getContext('2d').putImageData(outC,0,0);
+  l._bakedColor=cc;
 }
 const getSel=()=>state.layers[state.side].find(l=>l.id===state.sel)||null;
 function delLayer(id){
@@ -635,13 +651,14 @@ function drawKeyBody(g,side){ // g is in mm space
   }
 }
 
-function drawLayerInto(g,l){ // g in mm space; draws black art
+function drawLayerInto(g,l,mode='engrave'){ // g in mm space; mode: 'engrave' (black) | 'color' (layer colour / image RGB)
+  const col=mode==='color' ? (l.color||'#E6E9ED') : '#000';
   g.save();
   g.translate(l.x,l.y); g.rotate(l.rot*Math.PI/180);
   const w=l.w, h=l.w*l.aspect;
   if(l.type==='vector'){
     g.scale(w/2,w/2*(l.aspect||1));  // unit box -1..1
-    g.fillStyle='#000';
+    g.fillStyle=col;
     if(l.invert){
       // negative plate: bounding box filled, shape knocked out (even-odd flip)
       const p=new Path2D(); p.rect(-1,-1,2,2); p.addPath(LIB[l.vec].make());
@@ -660,33 +677,33 @@ function drawLayerInto(g,l){ // g in mm space; draws black art
       const tw=Math.max(1,met.width), th=asc+desc;
       tc.width=TC; tc.height=Math.max(1,Math.round(TC*th/tw));
       const tg=tc.getContext('2d');
-      tg.fillStyle='#000'; tg.fillRect(0,0,tc.width,tc.height);
+      tg.fillStyle=col; tg.fillRect(0,0,tc.width,tc.height);
       tg.globalCompositeOperation='destination-out';
       const s=TC/tw;
       tg.font=(100*s)+'px '+l.font; tg.textAlign='center'; tg.textBaseline='alphabetic';
       tg.fillText(l.text, tc.width/2, asc*s);
       g.drawImage(tc,-w/2,-h/2,w,h);
     } else {
-      g.fillStyle='#000';
+      g.fillStyle=col;
       g.font='100px '+l.font; g.textAlign='center'; g.textBaseline='middle';
       const m=g.measureText(l.text);
       const s=w/Math.max(1,m.width);
       g.scale(s,s); g.fillText(l.text,0,0);
     }
   } else if(l.type==='image'){
-    g.drawImage(l._baked,-w/2,-h/2,w,h);
+    g.drawImage((mode==='color'&&l._bakedColor)?l._bakedColor:l._baked,-w/2,-h/2,w,h);
   }
   g.restore();
 }
 
 // off-screen artwork canvas (alpha = engrave intensity), clipped by mask
-function renderArt(side,pxmm,clip=true){
+function renderArt(side,pxmm,clip=true,mode='engrave'){
   const c=document.createElement('canvas');
   c.width=Math.ceil(KEY.W*pxmm); c.height=Math.ceil(KEY.H*pxmm);
   const g=c.getContext('2d');
   g.scale(pxmm,pxmm);
   if(clip){ g.save(); g.clip(maskPath(side),'evenodd'); }
-  state.layers[side].forEach(l=>drawLayerInto(g,l));
+  state.layers[side].forEach(l=>drawLayerInto(g,l,mode));
   if(clip) g.restore();
   return c;
 }
@@ -733,8 +750,9 @@ function renderEditor(){
   drawKeyBody(g,state.side);
   g.restore();
 
-  // artwork: engraved (clipped) look, then the clipped-away part in orange on top
-  const lit=tint(renderArt(state.side,PXMM*DPR,true),'#dfe3e8');
+  // artwork: colour view renders per-layer colours + image RGB; engrave view tints the black-alpha art neutral grey
+  const _art=renderArt(state.side,PXMM*DPR,true,state.mode);
+  const lit=state.mode==='color'?_art:tint(_art,'#dfe3e8');
   g.drawImage(lit,0,0,KEY.W*PXMM,KEY.H*PXMM);
   const cut=tint(renderClippedAway(state.side,PXMM*DPR),'rgba(230,92,60,0.75)');
   g.drawImage(cut,0,0,KEY.W*PXMM,KEY.H*PXMM);
@@ -765,6 +783,15 @@ function renderPreview(canvas,side){
   const pxmm=canvas.width/KEY.W;
   g.setTransform(1,0,0,1,0,0);
   g.clearRect(0,0,canvas.width,canvas.height);
+  if(state.mode==='color'){
+    // sticker preview: body colour + full-colour art, clipped to mask
+    g.save(); g.scale(pxmm,pxmm);
+    g.fillStyle=$('#stBg').value;
+    g.fill(maskPath(side),'evenodd');
+    g.restore();
+    g.drawImage(renderArt(side,pxmm,true,'color'),0,0);
+    return;
+  }
   g.save(); g.scale(pxmm,pxmm); drawKeyBody(g,side); g.restore();
   const lit=tint(renderArt(side,pxmm,true),'#e8ebef');
   g.drawImage(lit,0,0);
@@ -822,6 +849,14 @@ function renderProps(){
   box.appendChild(propRow('X mm',-20,KEY.W+20,0.1,l.x,v=>{l.x=v; refresh();}));
   box.appendChild(propRow('Y mm',-20,KEY.H+20,0.1,l.y,v=>{l.y=v; refresh();}));
   box.appendChild(propRow('Rotate °',-180,180,1,l.rot,v=>{l.rot=v; refresh();}));
+  if(l.type==='vector'||l.type==='text'){
+    const cr=document.createElement('div'); cr.className='row';
+    cr.innerHTML='<label>Colour</label>';
+    const ci=document.createElement('input'); ci.type='color'; ci.value=l.color||'#E6E9ED';
+    ci.style.cssText='flex:1;height:28px;padding:2px;background:var(--bg)';
+    ci.oninput=()=>{l.color=ci.value; refresh();};
+    cr.appendChild(ci); box.appendChild(cr);
+  }
   const inv=document.createElement('label'); inv.className='chk';
   inv.innerHTML='<input type="checkbox"'+(l.invert?' checked':'')+'> '+
     (l.type==='image'?'Invert colours (light art engraves)':'Invert (negative / knockout plate)');
@@ -1098,7 +1133,7 @@ function renderSticker(side,pxmm){
   g.fillStyle=$('#stBg').value;
   g.fill(maskPath(side),'evenodd');       // sticker body with holes punched out
   g.restore();
-  const art=tint(renderArt(side,pxmm,true),$('#stArt').value);
+  const art=renderArt(side,pxmm,true,'color');   // full colour: per-layer colours + image RGB
   g.drawImage(art,0,0);
   return c;
 }
@@ -1146,6 +1181,14 @@ async function exportStickerSVG(){
 }
 $('#stPng').onclick=exportStickerPNG;
 $('#stSvg').onclick=exportStickerSVG;
+function setMode(m){
+  state.mode=m;
+  $('#viewEngrave').classList.toggle('active',m==='engrave');
+  $('#viewColor').classList.toggle('active',m==='color');
+  refresh();
+}
+$('#viewEngrave').onclick=()=>setMode('engrave');
+$('#viewColor').onclick=()=>setMode('color');
 
 /* =====================================================================
    PROJECT SAVE / LOAD
@@ -1153,6 +1196,7 @@ $('#stSvg').onclick=exportStickerSVG;
 $('#projSave').onclick=()=>{
   const ser=s=>state.layers[s].map(l=>{
     const o={type:l.type,name:l.name,x:l.x,y:l.y,w:l.w,rot:l.rot,aspect:l.aspect,invert:!!l.invert};
+    if(l.type==='vector'||l.type==='text') o.color=l.color||'#E6E9ED';
     if(l.type==='vector')o.vec=l.vec;
     if(l.type==='text'){o.text=l.text;o.font=l.font;}
     if(l.type==='image'){o.autoC=l.autoC;
