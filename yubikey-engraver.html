@@ -795,10 +795,13 @@ function renderPreview(canvas,side){
   g.drawImage(lit,0,0);
 }
 
-function refresh(){
+function renderCanvases(){
   renderEditor();
   renderPreview(pvF,'front');
   renderPreview(pvB,'back');
+}
+function refresh(){
+  renderCanvases();
   renderLayerList();
   renderProps();
 }
@@ -852,7 +855,7 @@ function renderProps(){
     cr.innerHTML='<label>Colour</label>';
     const ci=document.createElement('input'); ci.type='color'; ci.value=l.color||'#E6E9ED';
     ci.style.cssText='flex:1;height:28px;padding:2px;background:var(--bg)';
-    ci.oninput=()=>{l.color=ci.value; refresh();};
+    ci.oninput=()=>{l.color=ci.value; renderCanvases();};   // live canvas update only — don't rebuild #props (would close the native picker)
     cr.appendChild(ci); box.appendChild(cr);
   }
   const inv=document.createElement('label'); inv.className='chk';
