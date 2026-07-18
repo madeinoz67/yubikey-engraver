@@ -60,6 +60,19 @@ engrave-ready mask, tightly cropped to the key body.
 Use the **Invert** option on a layer (or invert in your laser software) when
 your artwork is light-on-dark — pick whichever polarity matches your material.
 
+### Sticker / colour printing (STICKER view)
+
+Full-colour exports for Cricut print-and-cut and UV printing — per-layer
+colours, image RGB, on a dark body with the cut-path outline:
+
+| **Front** | **Back** |
+|---|---|
+| ![sticker front](examples/sticker-front.png) | ![sticker back](examples/sticker-back.png) |
+
+Vector exports (printed design + red cut path) for UV / Cricut:
+[`sticker-front.svg`](examples/sticker-front.svg) ·
+[`sticker-back.svg`](examples/sticker-back.svg)
+
 ## Local development
 
 It's a single static HTML file. Edit, refresh the browser, done. No
