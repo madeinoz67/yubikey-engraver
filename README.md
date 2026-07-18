@@ -44,6 +44,19 @@ not supported** — the flush USB-stick body leaves no surface to engrave.
 3. **Export PNG** → import into LightBurn (or your laser software) → engrave
    (black = engrave).
 
+## Example output
+
+Real exports at 20 px/mm (true physical scale, `pHYs` DPI embedded) — the
+engrave-ready mask, tightly cropped to the key body.
+
+|   | **Normal** (black = engrave) | **Inverted** |
+|---|---|---|
+| **Front** | ![front normal](examples/front-normal.png) | ![front inverted](examples/front-inverted.png) |
+| **Back** | ![back normal](examples/back-normal.png) | ![back inverted](examples/back-inverted.png) |
+
+Use the **Invert** option on a layer (or invert in your laser software) when
+your artwork is light-on-dark — pick whichever polarity matches your material.
+
 ## Local development
 
 It's a single static HTML file. Edit, refresh the browser, done. No
