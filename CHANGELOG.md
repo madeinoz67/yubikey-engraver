@@ -6,25 +6,40 @@ following [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
-Color support for sticker printing.
+## [0.2.1] — 2026-07-19
+
+Colour sticker printing (Cricut print-and-cut / UV).
 
 ### Added
-- **COLOR/ENGRAVE view toggle** (header) — drives the editor canvas and the
+- **STICKER/ENGRAVE view toggle** (header) — drives the editor canvas and the
   front/back preview thumbnails. ENGRAVE = the existing monochrome laser view;
-  COLOR = full-colour (per-layer colours + image RGB).
+  STICKER = full-colour (per-layer colours + image RGB).
 - **Per-layer colour** for vector and text layers — colour picker in the
-  properties panel; the chosen colour shows in COLOR view and the sticker export.
+  properties panel; the chosen colour shows in STICKER view and the sticker
+  export.
 - **Colour-retaining image layers** — uploaded images render as their natural
-  image (original colours + their own transparency) in COLOR view and sticker
-  export. The laser path still uses the monochrome engrave-intensity bake.
-- **Sticker export is full-colour** — dark body (`stBg`) + per-layer colours +
-  image RGB, for Cricut print-and-cut. `stArt` is now the default art colour
-  for newly-added layers (gold accent, so COLOR mode is visibly distinct from
-  the monochrome engrave view).
+  image (original colours + their own transparency) in STICKER view and the
+  sticker export. The laser path still uses the monochrome engrave-intensity
+  bake.
+- **Full-colour sticker export** (PNG + SVG) — dark body (`stBg`) + per-layer
+  colours + image RGB, for Cricut print-and-cut and UV printing.
 
 ### Changed
 - `drawLayerInto` / `renderArt` are now mode-aware (`'engrave'` default is
-  identical to prior behavior; `'color'` drives sticker export + COLOR view).
+  identical to prior behavior; `'color'` drives sticker export + STICKER view).
+- New motif/text layers default to the **gold accent** (was grey) so STICKER
+  mode is visibly distinct from the monochrome engrave view; `stArt` is the
+  default-art-colour swatch.
+- Sticker PNG, SVG, and the STICKER-mode preview are cropped to the printable
+  key body (`KEY.H − KEY.bodyTop`), matching the laser export (no connector
+  strip).
+- The view toggle reads **STICKER** (was COLOR), matching the "STICKER PREVIEW"
+  thumbnail captions.
+
+### Fixed
+- Colour picker no longer closes on the first drag — the properties panel is
+  not rebuilt while picking, so you can browse and compare colours.
+- Front/back preview captions now switch with the mode (STICKER / ENGRAVED).
 
 ## [0.1.0] — 2026-07-18
 
