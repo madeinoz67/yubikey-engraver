@@ -66,6 +66,8 @@
 .viewtoggle{display:flex;border:1px solid var(--line);border-radius:6px;overflow:hidden}
 .viewtoggle button{background:var(--bg);color:var(--dim);border:0;padding:7px 16px;font-family:var(--mono);font-size:12px;letter-spacing:.08em}
 .viewtoggle button.active{background:var(--gold);color:#14100a;font-weight:600}
+.hdver{font-family:var(--mono);font-size:9px;border:1px solid var(--gold-dk);border-radius:3px;padding:1px 5px;letter-spacing:.06em;vertical-align:middle;margin-left:6px;font-weight:400}
+.copyright{grid-column:1/4;background:var(--panel);border-top:1px solid var(--line);font-family:var(--mono);font-size:10px;color:var(--dim);text-align:center;padding:4px 8px}
 
   .col{overflow-y:auto;background:var(--panel);border-right:1px solid var(--line);scrollbar-width:thin}
   .col.right{border-right:0;border-left:1px solid var(--line)}
@@ -141,7 +143,7 @@
   <header>
     <div class="logo" aria-hidden="true"></div>
     <div>
-      <h1>YUBIKEY <span id="modelName">5C NFC</span> ENGRAVER</h1>
+      <h1>YUBIKEY <span id="modelName">5C NFC</span> ENGRAVER <span class="hdver" id="hdver">v0.3.0</span></h1>
       <div class="sub" id="dims">v0.3.0 · 18.0 × 45.0 mm · design → clip → export @ true scale</div>
     </div>
     <div class="spacer"></div>
@@ -270,6 +272,7 @@
       <p class="note">Author: Stephen Eaton · v<span id="ver">0.3.0</span></p>
     </div>
   </aside>
+  <footer class="copyright">© 2026 Stephen Eaton · MIT License</footer>
 </div>
 
 <script>
@@ -1265,7 +1268,7 @@ $('#projFile').onchange=e=>{
 };
 
 /* ---------- boot ---------- */
-$('#ver').textContent=VERSION;
+$('#ver').textContent=VERSION; $('#hdver').textContent='v'+VERSION;
 
 /* PWA bootstrap — Author: Stephen Eaton
    Generates the app icon at runtime and injects a manifest so the page is
