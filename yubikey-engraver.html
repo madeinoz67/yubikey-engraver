@@ -533,7 +533,7 @@ function addImage(img,name){
   // pre-process to an "engrave intensity" alpha map: alpha = darkness × srcAlpha
   const src=g.getImageData(0,0,c.width,c.height);
   const layer={type:'image', name, x:KEY.W/2, y:defaultY(),
-    w:Math.min(12,KEY.W*0.7), rot:0, aspect:c.height/c.width, invert:false, _src:src};
+    w:Math.min(12,KEY.W*0.7), rot:0, aspect:c.height/c.width, invert:true, _src:src};
   bakeImage(layer);
   addLayer(layer);
 }
