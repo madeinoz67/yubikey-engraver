@@ -21,9 +21,9 @@ Author: **Stephen Eaton** · License: **MIT**
 - Live **engraved preview** (light-on-black) for both sides
 - **Export** clipped artwork as PNG at true physical scale (`pHYs` DPI embedded),
   ready for LightBurn / laser-engraving software (**black = engrave**)
-- **COLOR view + sticker export** — per-layer colours and full-colour image
-  printing for Cricut print-and-cut (toggle COLOR/ENGRAVE; laser export stays
-  monochrome black-on-white)
+- **STICKER view + sticker export** — per-layer colours and full-colour image
+  printing for Cricut print-and-cut / UV (toggle STICKER/ENGRAVE; the laser
+  export stays a monochrome black-on-white mask)
 
 ## Supported models
 
@@ -45,7 +45,33 @@ not supported** — the flush USB-stick body leaves no surface to engrave.
 2. Pick your model (or calibrate a custom one), then design — drop in a motif
    or image, add text, position with drag / arrows / wheel.
 3. **Export PNG** → import into LightBurn (or your laser software) → engrave
-   (black = engrave).
+   (black = engrave — see [**Engraving polarity**](#engraving-polarity-dark-vs-light) below).
+
+## Engraving polarity (dark vs light)
+
+The bit that trips everyone up — stated plainly:
+
+**`black = engrave`** in the exported PNG. **On a black YubiKey, laser engraving
+removes the black surface and reveals a lighter underlayer**, so the engraved
+(the black-in-PNG) areas become **light marks** on the black key. So you want
+your *design* to be the engraved part — i.e. the **black** part of the export.
+
+- **Your design → black in the PNG → light mark on the key.**
+- The on-screen **engraved preview** shows the *result* (light marks on the dark
+  key), so it looks like the inverse of the export PNG. Same engraving, two
+  views — that's expected, not a bug.
+
+**Uploaded images** (the common trap):
+
+- **Light-on-dark** art (light design on a dark background that matches the key —
+  the usual case for black YubiKeys): **Invert is on by default**, so your light
+  design engraves. Leave it on.
+- **Dark-on-light** art (dark design on a light background): uncheck **Invert**
+  so the dark design engraves.
+- The checkbox label says it: *"Invert colours (light art engraves)."*
+
+**Motif/text layers** are solid shapes — they engrave as-is. Use the per-layer
+Invert option only for a knockout (negative-plate) effect.
 
 ## Colour & sticker printing
 
@@ -81,8 +107,9 @@ engrave-ready mask, tightly cropped to the key body.
 | **Front** | ![front normal](examples/front-normal.png) | ![front inverted](examples/front-inverted.png) |
 | **Back** | ![back normal](examples/back-normal.png) | ![back inverted](examples/back-inverted.png) |
 
-Use the **Invert** option on a layer (or invert in your laser software) when
-your artwork is light-on-dark — pick whichever polarity matches your material.
+See [**Engraving polarity**](#engraving-polarity-dark-vs-light) for when to use
+Invert — short version: light-on-dark artwork → Invert on (the default for
+uploaded images); dark-on-light → Invert off.
 
 ### Sticker / colour printing (STICKER view)
 
