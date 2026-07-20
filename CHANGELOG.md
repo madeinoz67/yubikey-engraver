@@ -6,6 +6,24 @@ following [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.3.0] — 2026-07-20
+
+Black-YubiKey engraving polarity.
+
+### Changed
+- **Image layers now default to Invert on** (light art engraves). On a black
+  YubiKey, laser engraving reveals a lighter underlayer, so you want your
+  (light) design engraved — leaving the dark background (the key body)
+  untouched. Imported artwork is typically light-on-dark, so defaulting
+  invert on makes the design engrave out of the box instead of the
+  background. Uncheck for dark-on-light artwork.
+
+### Docs
+- README: new **Engraving polarity (dark vs light)** section — explains that
+  `black = engrave` becomes a light mark on a black key, when to use Invert,
+  and that the engraved preview and the export PNG are two views of the same
+  engraving.
+
 ## [0.2.1] — 2026-07-19
 
 Colour sticker printing (Cricut print-and-cut / UV).
