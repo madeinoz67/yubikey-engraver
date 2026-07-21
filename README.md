@@ -1,4 +1,4 @@
-# YubiKey 5C NFC · Engraving Designer
+# YubiKey Engraver
 
 **🌐 Live demo: <https://madeinoz67.github.io/yubikey-engraver/>**
 
@@ -7,7 +7,7 @@ A single-file, local-first web app for designing laser-engraving artwork for
 (the flush USB-stick Nano has no exposed surface to engrave). Open the HTML
 file in any modern browser — **no server, no install, no build step.**
 
-![YubiKey 5C NFC Engraving Designer](screenshot.png)
+![YubiKey Engraver](screenshot.png)
 
 Author: **Stephen Eaton** · License: **MIT**
 
