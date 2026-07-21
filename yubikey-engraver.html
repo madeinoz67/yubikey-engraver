@@ -108,6 +108,7 @@
   .btnrow button{flex:1;background:var(--bg);border:1px solid var(--line);color:var(--text);border-radius:5px;padding:6px;font-size:12px}
   .btnrow button:hover{border-color:var(--gold)}
   .btnrow button.danger{color:var(--danger)}
+  .btnrow button.mirror.active{border-color:var(--gold);color:var(--gold)}
   .btnrow button.danger:hover{border-color:var(--danger)}
 
   /* layers */
@@ -510,7 +511,7 @@ function addLayer(l){
 const defaultY=()=>KEY.bodyTop+(KEY.H-KEY.bodyTop)*(state.side==='front'?0.25:0.4);
 function addVector(idx){
   addLayer({type:'vector', vec:idx, name:LIB[idx].name,
-    x:KEY.W/2, y:defaultY(), w:Math.min(8,KEY.W*0.55), rot:0, aspect:1,
+    x:KEY.W/2, y:defaultY(), w:Math.min(8,KEY.W*0.55), rot:0, aspect:1, mx:false, my:false,
     color:$('#stArt').value});
 }
 function addText(txt,font){
@@ -521,7 +522,7 @@ function addText(txt,font){
   const asc=met.actualBoundingBoxAscent||75, desc=met.actualBoundingBoxDescent||25;
   addLayer({type:'text', text:txt, font, name:'“'+txt+'”',
     x:KEY.W/2, y:defaultY(), w:Math.min(KEY.W*0.8,txt.length*3), rot:0,
-    aspect:(asc+desc)/Math.max(1,met.width), color:$('#stArt').value});
+    aspect:(asc+desc)/Math.max(1,met.width), color:$('#stArt').value, mx:false, my:false});
 }
 function addImage(img,name){
   // downscale huge photos: 1600px is far beyond engraving resolution needs,
@@ -537,7 +538,7 @@ function addImage(img,name){
   // pre-process to an "engrave intensity" alpha map: alpha = darkness × srcAlpha
   const src=g.getImageData(0,0,c.width,c.height);
   const layer={type:'image', name, x:KEY.W/2, y:defaultY(),
-    w:Math.min(12,KEY.W*0.7), rot:0, aspect:c.height/c.width, invert:true, _src:src};
+    w:Math.min(12,KEY.W*0.7), rot:0, aspect:c.height/c.width, invert:true, mx:false, my:false, _src:src};
   bakeImage(layer);
   addLayer(layer);
 }
@@ -658,7 +659,7 @@ function drawKeyBody(g,side){ // g is in mm space
 function drawLayerInto(g,l,mode='engrave'){ // g in mm space; mode: 'engrave' (black) | 'color' (layer colour / image RGB)
   const col=mode==='color' ? (l.color||'#E6E9ED') : '#000';
   g.save();
-  g.translate(l.x,l.y); g.rotate(l.rot*Math.PI/180);
+  g.translate(l.x,l.y); g.rotate(l.rot*Math.PI/180); g.scale(l.mx?-1:1, l.my?-1:1);
   const w=l.w, h=l.w*l.aspect;
   if(l.type==='vector'){
     g.scale(w/2,w/2*(l.aspect||1));  // unit box -1..1
@@ -884,6 +885,10 @@ function renderProps(){
     ac.querySelector('input').onchange=e=>{l.autoC=e.target.checked; bakeImage(l); refresh();};
     box.appendChild(ac);
   }
+  const mr=document.createElement('div'); mr.className='btnrow';
+  const mh=document.createElement('button'); mh.textContent='Mirror H'; mh.className='mirror'+(l.mx?' active':''); mh.onclick=()=>{l.mx=!l.mx; refresh();};
+  const mv=document.createElement('button'); mv.textContent='Mirror V'; mv.className='mirror'+(l.my?' active':''); mv.onclick=()=>{l.my=!l.my; refresh();};
+  mr.append(mh,mv); box.appendChild(mr);
   const br=document.createElement('div'); br.className='btnrow';
   const dup=document.createElement('button'); dup.textContent='Duplicate';
   dup.onclick=()=>{const c=Object.assign({},l); c.y=clamp(c.y+3,0,KEY.H); addLayer(c);};
@@ -978,6 +983,8 @@ window.addEventListener('keydown',e=>{
   else if(e.key==='ArrowUp'){l.y-=s;} else if(e.key==='ArrowDown'){l.y+=s;}
   else if(e.key==='Delete'||e.key==='Backspace'){delLayer(l.id); return;}
   else if(e.key==='i'||e.key==='I'){l.invert=!l.invert; if(l.type==='image')bakeImage(l);}
+  else if(e.key==='h'||e.key==='H'){l.mx=!l.mx;}
+  else if(e.key==='v'||e.key==='V'){l.my=!l.my;}
   else return;
   e.preventDefault(); refresh();
 });
@@ -1212,7 +1219,7 @@ $('#viewColor').onclick=()=>setMode('color');
    ===================================================================== */
 $('#projSave').onclick=()=>{
   const ser=s=>state.layers[s].map(l=>{
-    const o={type:l.type,name:l.name,x:l.x,y:l.y,w:l.w,rot:l.rot,aspect:l.aspect,invert:!!l.invert};
+    const o={type:l.type,name:l.name,x:l.x,y:l.y,w:l.w,rot:l.rot,aspect:l.aspect,invert:!!l.invert,mx:!!l.mx,my:!!l.my};
     if(l.type==='vector'||l.type==='text') o.color=l.color||'#E6E9ED';
     if(l.type==='vector')o.vec=l.vec;
     if(l.type==='text'){o.text=l.text;o.font=l.font;}
