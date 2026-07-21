@@ -1,4 +1,4 @@
-# YubiKey Engraver
+# Bling your YubiKey - YubiKey Engraver
 
 **🌐 Live demo: <https://madeinoz67.github.io/yubikey-engraver/>**
 
