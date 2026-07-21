@@ -6,6 +6,24 @@ following [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.4.0] — 2026-07-21
+
+Per-layer mirror + Hackaday logo motif.
+
+### Added
+- **Per-layer Mirror (H/V)** — flip the selected layer horizontally or
+  vertically (Mirror H / Mirror V buttons in the properties panel; `H` / `V`
+  keyboard shortcuts). Mirroring both == a 180° rotation. Works for motifs,
+  text, and images; save/load round-trips it. The existing export-time
+  `expMirror` (global back-side flip) is unchanged.
+- **Hackaday Jolly Wrencher motif** — the Hackaday mascot (skull + crossed
+  wrenches) added as the first entry in the vector motif library, from the
+  official logo path data (3 separate paths, normalised to the unit box).
+- **Version badge** in the top header + a **copyright footer** bar.
+
+### Changed
+- Default text-entry placeholder genericised to `e.g. MY KEY`.
+
 ## [0.3.0] — 2026-07-20
 
 Black-YubiKey engraving polarity.
