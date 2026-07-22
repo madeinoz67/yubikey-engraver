@@ -145,7 +145,7 @@
     <div class="logo" aria-hidden="true"></div>
     <div>
       <h1>YUBIKEY <span id="modelName">5C NFC</span> ENGRAVER <span class="hdver" id="hdver">v0.4.0</span></h1>
-      <div class="sub" id="dims">v0.4.0 · 18.0 × 45.0 mm · design → clip → export @ true scale</div>
+      <div class="sub" id="dims">18.0 × 45.0 mm · design → clip → export @ true scale</div>
     </div>
     <div class="spacer"></div>
     <select id="model" title="YubiKey model" style="max-width:190px"></select>
@@ -1061,7 +1061,7 @@ function switchModel(id){
   applyModel(id);
   modelSel.value=currentModel;
   $('#modelName').textContent=MODELS[currentModel].label.replace(/^YubiKey\s*/i,'').replace(/\s*\(.*\)$/,'').toUpperCase();
-  $('#dims').textContent='v'+VERSION+' · '+KEY.W.toFixed(1)+' × '+KEY.H.toFixed(1)+' mm · design → clip → export @ true scale';
+  $('#dims').textContent=KEY.W.toFixed(1)+' × '+KEY.H.toFixed(1)+' mm · design → clip → export @ true scale';
   syncGeomInputs();
   sizeCanvases();
   refresh();
