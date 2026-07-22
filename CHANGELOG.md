@@ -6,6 +6,17 @@ following [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.4.1] — 2026-07-22
+
+UI polish.
+
+### Changed
+- README title genericised: **"Bling your YubiKey - YubiKey Engraver"** (no
+  model-specific label).
+- Version removed from the header dims subtext (still in the gold badge and
+  footer).
+- README hero screenshot refreshed (Jolly Wrencher motif, STICKER/gold view).
+
 ## [0.4.0] — 2026-07-21
 
 Per-layer mirror + Hackaday logo motif.
