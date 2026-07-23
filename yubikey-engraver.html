@@ -227,11 +227,13 @@
       <p class="note">Clearances are added around the keyring hole and touch pad. All values in mm. Pad clearance applies to the front only.</p>
       <details class="adv">
         <summary>▸ calibrate key geometry (mm)</summary>
+        <div class="row"><label>Width W</label><span class="val" style="flex:1"><input id="gW"></span></div>
+        <div class="row"><label>Height H</label><span class="val" style="flex:1"><input id="gH"></span></div>
         <div class="row"><label>Hole Ø</label><span class="val" style="flex:1"><input id="gHoleD"></span></div>
         <div class="row"><label>Hole Y</label><span class="val" style="flex:1"><input id="gHoleY"></span></div>
         <div class="row"><label>Pad Ø</label><span class="val" style="flex:1"><input id="gPadD"></span></div>
         <div class="row"><label>Pad Y</label><span class="val" style="flex:1"><input id="gPadY"></span></div>
-        <p class="note">Y is measured from the tip of the USB-C end. Measure your key with calipers for a perfect fit, then re-check the dashed clip lines.</p>
+        <p class="note">H is the engraveable body height (excludes the USB connector). Hole/Pad Y are measured from the bottom edge of the engraveable body — everything stays aligned to the engraving area as you adjust it. Measure with calipers, then re-check the dashed clip lines.</p>
       </details>
     </div>
 
@@ -282,7 +284,7 @@
    Author: Stephen Eaton
    ===================================================================== */
 'use strict';
-const VERSION='0.5.0';
+const VERSION='0.6.0';
 
 /* ---------- model catalogue (mm). Origin = top-left of W×H bounding box,
    connector at the top, keyring hole (if any) at the bottom.
@@ -291,17 +293,17 @@ const VERSION='0.5.0';
 const GOLD={b0:'#1b1e23',b1:'#24282e',b2:'#171a1f',pad:'gold'};
 const MODELS={
   '5c-nfc':  {label:'YubiKey 5C NFC (default)', W:17, H:45, bodyTop:12.5, bodyR:3.0,
-              conn:{type:'usbc',w:9.0,h:6.6,r:1.6}, hole:{d:5.0,y:40.8},
-              pad:{d:10.0,y:26.7}, style:GOLD, nfc:true},
+              conn:{type:'usbc',w:9.0,h:6.6,r:1.6}, hole:{d:5.0,y:40.5},
+              pad:{d:10.0,y:27.0}, style:GOLD, nfc:true},
   '5-nfc':   {label:'YubiKey 5 NFC (USB-A)', W:17, H:45, bodyTop:12.5, bodyR:3.0,
-              conn:{type:'usba',w:12.0,h:7.8,r:0.9}, hole:{d:5.0,y:40.8},
-              pad:{d:10.0,y:26.7}, style:GOLD, nfc:true},
+              conn:{type:'usba',w:12.0,h:7.8,r:0.9}, hole:{d:5.0,y:40.5},
+              pad:{d:10.0,y:27.0}, style:GOLD, nfc:true},
   'sk-c-nfc':{label:'Security Key C NFC (blue)', W:17, H:45, bodyTop:12.5, bodyR:3.0,
-              conn:{type:'usbc',w:9.0,h:6.6,r:1.6}, hole:{d:5.0,y:40.8},
-              pad:{d:10.0,y:26.7},
+              conn:{type:'usbc',w:9.0,h:6.6,r:1.6}, hole:{d:5.0,y:40.5},
+              pad:{d:10.0,y:27.0},
               style:{b0:'#1c2c4e',b1:'#27406f',b2:'#152340',pad:'gold'}, nfc:true},
   'bio-c':   {label:'YubiKey Bio C (fingerprint)', W:17, H:45, bodyTop:12.5, bodyR:3.0,
-              conn:{type:'usbc',w:9.0,h:6.6,r:1.6}, hole:{d:5.0,y:40.8},
+              conn:{type:'usbc',w:9.0,h:6.6,r:1.6}, hole:{d:5.0,y:40.5},
               pad:{d:11.4,y:25.6},
               style:{b0:'#1b1e23',b1:'#24282e',b2:'#171a1f',pad:'bio'}, nfc:false},
   '5c':      {label:'YubiKey 5C (compact)', W:12.5, H:29.5, bodyTop:6.4, bodyR:2.2,
@@ -1049,15 +1051,19 @@ function bindGeom(id,get,set){
 }
 function syncGeomInputs(){
   const put=(id,val,ok)=>{const el=$(id); el.disabled=!ok; el.value=ok?val.toFixed(1):'—';};
+  put('#gW',KEY.W,true);
+  put('#gH',KEY.H-KEY.bodyTop,true);
   put('#gHoleD',KEY.hole?KEY.hole.d:0,!!KEY.hole);
-  put('#gHoleY',KEY.hole?KEY.hole.y:0,!!KEY.hole);
+  put('#gHoleY',KEY.hole?KEY.H-KEY.hole.y:0,!!KEY.hole);
   put('#gPadD',KEY.pad?KEY.pad.d:0,!!KEY.pad);
-  put('#gPadY',KEY.pad?KEY.pad.y:0,!!KEY.pad);
+  put('#gPadY',KEY.pad?KEY.H-KEY.pad.y:0,!!KEY.pad);
 }
+bindGeom('#gW',()=>KEY.W,n=>{KEY.W=n; sizeCanvases(); $('#dims').textContent=KEY.W.toFixed(1)+' × '+(KEY.H-KEY.bodyTop).toFixed(1)+' mm · design → clip → export @ true scale';});
+bindGeom('#gH',()=>KEY.H-KEY.bodyTop,n=>{const dH=(n+KEY.bodyTop)-KEY.H; KEY.H=n+KEY.bodyTop; if(KEY.hole)KEY.hole.y+=dH; if(KEY.pad)KEY.pad.y+=dH; sizeCanvases(); $('#dims').textContent=KEY.W.toFixed(1)+' × '+(KEY.H-KEY.bodyTop).toFixed(1)+' mm · design → clip → export @ true scale';});
 bindGeom('#gHoleD',()=>KEY.hole?.d,n=>{if(KEY.hole)KEY.hole.d=n;});
-bindGeom('#gHoleY',()=>KEY.hole?.y,n=>{if(KEY.hole)KEY.hole.y=n;});
+bindGeom('#gHoleY',()=>KEY.hole?(KEY.H-KEY.hole.y):0,n=>{if(KEY.hole)KEY.hole.y=KEY.H-n;});
 bindGeom('#gPadD',()=>KEY.pad?.d,n=>{if(KEY.pad)KEY.pad.d=n;});
-bindGeom('#gPadY',()=>KEY.pad?.y,n=>{if(KEY.pad)KEY.pad.y=n;});
+bindGeom('#gPadY',()=>KEY.pad?(KEY.H-KEY.pad.y):0,n=>{if(KEY.pad)KEY.pad.y=KEY.H-n;});
 syncGeomInputs();
 
 /* ---------- model selector ---------- */
@@ -1071,7 +1077,7 @@ function switchModel(id){
   applyModel(id);
   modelSel.value=currentModel;
   $('#modelName').textContent=MODELS[currentModel].label.replace(/^YubiKey\s*/i,'').replace(/\s*\(.*\)$/,'').toUpperCase();
-  $('#dims').textContent=KEY.W.toFixed(1)+' × '+KEY.H.toFixed(1)+' mm · design → clip → export @ true scale';
+  $('#dims').textContent=KEY.W.toFixed(1)+' × '+(KEY.H-KEY.bodyTop).toFixed(1)+' mm · design → clip → export @ true scale';
   syncGeomInputs();
   sizeCanvases();
   refresh();

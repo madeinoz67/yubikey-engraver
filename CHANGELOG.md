@@ -6,6 +6,16 @@ following [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.6.0] — 2026-07-24
+
+Calibrate panel: W/H inputs + engrave-area-centric geometry.
+
+### Changed
+- Calibrate panel now has Width and Height inputs (aligns with the README's "measure W / H / hole / pad").
+- Height is the engraveable body height (excludes the USB connector); the on-screen dims readout shows the engrave area.
+- Hole/Pad Y are measured from the bottom edge of the engraveable body and stay aligned when the engraving area is resized.
+- Defaults: keyring hole 4.5 mm, touchpad 18 mm from the bottom edge.
+
 ## [0.5.0] — 2026-07-23
 
 Correct key geometry to true measurements; transparent export background.
