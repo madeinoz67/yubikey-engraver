@@ -245,7 +245,7 @@
         </select>
       </div>
       <label class="chk"><input type="checkbox" id="expMirror"> Mirror back-side export</label>
-      <label class="chk"><input type="checkbox" id="expOutline" checked> Include body outline (alignment)</label>
+      <label class="chk"><input type="checkbox" id="expOutline"> Include body outline (alignment)</label>
       <button class="exportBtn" id="expFront">Export FRONT · PNG</button>
       <button class="exportBtn ghost" id="expBack">Export BACK · PNG</button>
       <p class="note">PNG is written at true physical scale (DPI embedded) — canvas is exactly the key's real size. Black = engrave, white = skip. Import into LightBurn / LaserGRBL and it lands at real size.</p>
@@ -290,18 +290,18 @@ const VERSION='0.4.1';
    per key with the calibrate panel. ---------- */
 const GOLD={b0:'#1b1e23',b1:'#24282e',b2:'#171a1f',pad:'gold'};
 const MODELS={
-  '5c-nfc':  {label:'YubiKey 5C NFC (default)', W:18, H:45, bodyTop:6.2, bodyR:3.0,
-              conn:{type:'usbc',w:9.0,h:6.6,r:1.6}, hole:{d:4.0,y:40.8},
-              pad:{d:11.4,y:25.6}, style:GOLD, nfc:true},
-  '5-nfc':   {label:'YubiKey 5 NFC (USB-A)', W:18, H:45, bodyTop:8.4, bodyR:3.0,
-              conn:{type:'usba',w:12.0,h:7.8,r:0.9}, hole:{d:4.0,y:40.8},
-              pad:{d:11.4,y:26.6}, style:GOLD, nfc:true},
-  'sk-c-nfc':{label:'Security Key C NFC (blue)', W:18, H:45, bodyTop:6.2, bodyR:3.0,
-              conn:{type:'usbc',w:9.0,h:6.6,r:1.6}, hole:{d:4.0,y:40.8},
-              pad:{d:11.4,y:25.6},
+  '5c-nfc':  {label:'YubiKey 5C NFC (default)', W:17, H:45, bodyTop:12.5, bodyR:3.0,
+              conn:{type:'usbc',w:9.0,h:6.6,r:1.6}, hole:{d:5.0,y:40.8},
+              pad:{d:10.0,y:26.7}, style:GOLD, nfc:true},
+  '5-nfc':   {label:'YubiKey 5 NFC (USB-A)', W:17, H:45, bodyTop:12.5, bodyR:3.0,
+              conn:{type:'usba',w:12.0,h:7.8,r:0.9}, hole:{d:5.0,y:40.8},
+              pad:{d:10.0,y:26.7}, style:GOLD, nfc:true},
+  'sk-c-nfc':{label:'Security Key C NFC (blue)', W:17, H:45, bodyTop:12.5, bodyR:3.0,
+              conn:{type:'usbc',w:9.0,h:6.6,r:1.6}, hole:{d:5.0,y:40.8},
+              pad:{d:10.0,y:26.7},
               style:{b0:'#1c2c4e',b1:'#27406f',b2:'#152340',pad:'gold'}, nfc:true},
-  'bio-c':   {label:'YubiKey Bio C (fingerprint)', W:18, H:45, bodyTop:6.2, bodyR:3.0,
-              conn:{type:'usbc',w:9.0,h:6.6,r:1.6}, hole:{d:4.0,y:40.8},
+  'bio-c':   {label:'YubiKey Bio C (fingerprint)', W:17, H:45, bodyTop:12.5, bodyR:3.0,
+              conn:{type:'usbc',w:9.0,h:6.6,r:1.6}, hole:{d:5.0,y:40.8},
               pad:{d:11.4,y:25.6},
               style:{b0:'#1b1e23',b1:'#24282e',b2:'#171a1f',pad:'bio'}, nfc:false},
   '5c':      {label:'YubiKey 5C (compact)', W:12.5, H:29.5, bodyTop:6.4, bodyR:2.2,
@@ -618,7 +618,7 @@ function drawKeyBody(g,side){ // g is in mm space
   // connector
   if(KEY.conn.type==='usbc'){
     g.fillStyle='#101216';
-    const cp=new Path2D(); roundedRect(cp,(KEY.W-KEY.conn.w)/2-1.4,0.4,KEY.conn.w+2.8,KEY.bodyTop+2,1.8); g.fill(cp);
+    const cp=new Path2D(); roundedRect(cp,(KEY.W-KEY.conn.w)/2-1.4,0.4,KEY.conn.w+2.8,KEY.conn.h+1.6,1.8); g.fill(cp);
     const tab=new Path2D(); roundedRect(tab,(KEY.W-KEY.conn.w)/2,0,KEY.conn.w,KEY.conn.h,KEY.conn.r);
     g.fillStyle='#8d949e'; g.fill(tab);
     const slot=new Path2D(); roundedRect(slot,(KEY.W-KEY.conn.w)/2+0.9,2.1,KEY.conn.w-1.8,2.2,1.1);
@@ -632,8 +632,18 @@ function drawKeyBody(g,side){ // g is in mm space
     g.fillRect(KEY.W/2-KEY.conn.w*0.30-hw/2, 1.6, hw, 1.7);
     g.fillRect(KEY.W/2+KEY.conn.w*0.30-hw/2, 1.6, hw, 1.7);
   }
-  // body
-  const body=new Path2D(); roundedRect(body,0,KEY.bodyTop,KEY.W,KEY.H-KEY.bodyTop,KEY.bodyR);
+  // body = SVG contour silhouette: connector-width tongue widens via concave fillets into the full body (no gap)
+  const body=new Path2D();
+  const tw=KEY.conn.w, tx=(KEY.W-tw)/2, tT=KEY.conn.h, tB=KEY.bodyTop, fR=KEY.bodyR;
+  body.moveTo(tx,tT); body.lineTo(tx+tw,tT); body.lineTo(tx+tw,tB);
+  body.quadraticCurveTo(KEY.W,tB,KEY.W,tB+fR);
+  body.lineTo(KEY.W,KEY.H-fR);
+  body.quadraticCurveTo(KEY.W,KEY.H,KEY.W-fR,KEY.H);
+  body.lineTo(fR,KEY.H);
+  body.quadraticCurveTo(0,KEY.H,0,KEY.H-fR);
+  body.lineTo(0,tB+fR);
+  body.quadraticCurveTo(0,tB,tx,tB);
+  body.lineTo(tx,tT); body.closePath();
   const grad=g.createLinearGradient(0,0,KEY.W,0);
   grad.addColorStop(0,st.b0); grad.addColorStop(0.5,st.b1); grad.addColorStop(1,st.b2);
   g.fillStyle=grad; g.fill(body);
@@ -1124,9 +1134,9 @@ async function exportSide(side){
   const c=document.createElement('canvas');
   c.width=Math.round(KEY.W*pxmm); c.height=Math.round((KEY.H-KEY.bodyTop)*pxmm);
   const g=c.getContext('2d');
-  g.fillStyle='#FFFFFF'; g.fillRect(0,0,c.width,c.height);
   g.save();
   g.translate(0,-KEY.bodyTop*pxmm);   // crop to body: drop the connector strip above bodyTop
+  g.save(); g.scale(pxmm,pxmm); g.fillStyle='#FFFFFF'; g.fill(maskPath(side),'evenodd'); g.restore(); // white skip-bg inside the engrave mask only; clipped area (holes/touchpad/outside) stays transparent
   if(mirror){ g.translate(c.width,0); g.scale(-1,1); }
   const art=tint(renderArt(side,pxmm,true),'#000000');
   g.drawImage(art,0,0);
