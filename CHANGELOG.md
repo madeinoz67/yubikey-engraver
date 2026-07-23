@@ -6,6 +6,21 @@ following [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.5.0] — 2026-07-23
+
+Correct key geometry to true measurements; transparent export background.
+
+### Changed
+- Key models (5c-nfc, 5-nfc, sk-c-nfc, bio-c): width 18->17 mm, body
+  38.8->32.5 mm, keyring hole 4->5 mm; NFC-model touchpad 11.4->10 mm.
+  Measured from the actual key (STEP model + front/back SVG contours).
+  Compact 5c unchanged.
+- Editor: key body renders the SVG-contour silhouette (connector tongue +
+  concave fillets) — connector meets the body with no gap.
+- Export: body outline off by default.
+- Export: clipped area (keyring hole / touchpad / outside body) now
+  transparent; white skip-background only inside the engrave mask.
+
 ## [0.4.1] — 2026-07-22
 
 UI polish.
